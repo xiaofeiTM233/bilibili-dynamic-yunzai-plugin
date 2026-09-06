@@ -1,0 +1,40 @@
+# 依赖
+node_modules/
+
+# 运行时数据（独立运行/测试时回退到插件目录内，正常安装在云崽下时位于 <云崽根>/data/bilibili-dynamic/）
+data/
+resources/
+config/config.json
+
+# 测试产物
+test/output/
+test/*.log
+
+# 日志
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 环境变量
+.env
+.env.*
+
+# 编辑器 / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.iml
+
+# 操作系统
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 临时文件 / 模拟目录
+test/fake-yunzai/
+*.tmp
+
+/.mimosa

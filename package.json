@@ -1,0 +1,28 @@
+{
+  "name": "bilibili-dynamic-yunzai-plugin",
+  "version": "1.0.0",
+  "description": "云崽 Yunzai-Bot V3 的 B 站动态/直播订阅推送插件，基于 bilibili-dynamic-canvaskit（Skia）绘制动态卡片，参考 bilibili-dynamic-mirai-plugin 实现",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test/render-test.js"
+  },
+  "keywords": [
+    "yunzai",
+    "yunzai-bot",
+    "bilibili",
+    "dynamic",
+    "canvas",
+    "skia"
+  ],
+  "license": "AGPL-3.0",
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "bilibili-dynamic-canvaskit": "^0.1.0",
+    "canvaskit-wasm": "^0.42.0",
+    "qrcode": "^1.5.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
