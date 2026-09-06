@@ -55,7 +55,7 @@ function migrateLegacyData() {
   try {
     if (fs.existsSync(legacyData) && !fs.existsSync(dataPath)) {
       fs.copyFileSync(legacyData, dataPath)
-      console.log('[bilibili-dynamic] 已迁移订阅数据到 ' + dataPath)
+      global.logger?.mark?.('[bilibili-dynamic] 已迁移订阅数据到 ' + dataPath)
     }
     for (const [from, to] of [
       [path.join(legacyResources, 'cache'), cacheDir],

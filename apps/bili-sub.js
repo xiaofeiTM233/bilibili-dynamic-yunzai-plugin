@@ -6,7 +6,9 @@ import { getData, saveData } from '../model/Config.js'
 import * as Data from '../model/Data.js'
 import * as Api from '../model/Api.js'
 import * as Push from '../model/Push.js'
-import { canManage, resolveTarget, matchUid, subscribeUser, replyError, splitArgs } from './helpers.js'
+import { canManage, resolveTarget, matchUid, subscribeUser, replyError, splitArgs } from '../model/helpers.js'
+
+const logger = global.logger ?? console
 
 const HELP_TEXT = `【B站动态订阅】
 #bili订阅 <UID/用户名> [群号]    添加订阅
@@ -177,6 +179,15 @@ export class BiliSubscribe extends plugin {
 /** 追番（对应 PgcService.followPgc） */
 const PGC_TYPE = { 1: '番剧', 2: '电影', 3: '纪录片', 4: '国创', 5: '电视剧', 7: '综艺' }
 
+/** 尝试关注番剧，忽略"已关注"类错误 */
+async function followPgcSafe(ssid) {
+  try {
+    await Api.followPgc(ssid)
+  } catch (err) {
+    if (!/已经关注过|已关注/.test(err.message)) logger.warn(`[bilibili-dynamic] 追番失败: ${err.message}`)
+  }
+}
+
 export async function subscribeBangumi(id, contact) {
   const m = /^(ss|md|ep)(\d{4,12})$/.exec(id)
   if (!m) return 'ID 格式错误，例：ss11111 / md22222 / ep33333'
@@ -191,11 +202,7 @@ export async function subscribeBangumi(id, contact) {
       title = season.title
       mediaId = season.media_id
       typeName = PGC_TYPE[season.type] ?? '未知'
-      try {
-        await Api.followPgc(ssid)
-      } catch (err) {
-        if (!/已经关注过|已关注/.test(err.message)) logger.warn(`[bilibili-dynamic] 追番失败: ${err.message}`)
-      }
+      await followPgcSafe(ssid)
     } else if (type === 'md') {
       const media = await Api.getMediaInfo(num)
       if (!media?.media) return '获取番剧信息失败，港澳台番剧请用 media id (md11111) 订阅'
@@ -203,11 +210,7 @@ export async function subscribeBangumi(id, contact) {
       title = media.media.title
       mediaId = media.media.media_id
       typeName = media.media.type_name ?? '未知'
-      try {
-        await Api.followPgc(ssid)
-      } catch (err) {
-        if (!/已经关注过|已关注/.test(err.message)) logger.warn(`[bilibili-dynamic] 追番失败: ${err.message}`)
-      }
+      await followPgcSafe(ssid)
     } else {
       const season = await Api.getEpisodeInfo(num)
       if (!season) return '获取番剧信息失败，港澳台番剧请用 media id (md11111) 订阅'
@@ -215,11 +218,7 @@ export async function subscribeBangumi(id, contact) {
       title = season.title
       mediaId = season.media_id
       typeName = PGC_TYPE[season.type] ?? '未知'
-      try {
-        await Api.followPgc(ssid)
-      } catch (err) {
-        if (!/已经关注过|已关注/.test(err.message)) logger.warn(`[bilibili-dynamic] 追番失败: ${err.message}`)
-      }
+      await followPgcSafe(ssid)
     }
   } catch (err) {
     return `获取番剧信息失败: ${err.message}`

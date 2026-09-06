@@ -1,11 +1,11 @@
 /**
  * 指令层公共辅助
  */
-import { getData } from '../model/Config.js'
-import * as Data from '../model/Data.js'
-import * as Api from '../model/Api.js'
-import { splitArgs } from '../model/Utils.js'
-import { LoginExpiredError } from '../model/Api.js'
+import { getData } from './Config.js'
+import * as Data from './Data.js'
+import * as Api from './Api.js'
+import { splitArgs } from './Utils.js'
+import { LoginExpiredError } from './Api.js'
 
 const logger = global.logger ?? console
 

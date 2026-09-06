@@ -21,8 +21,8 @@ const check = (name, ok, extra = '') => {
   if (!ok) failed++
 }
 
-const apps = (await import('../index.js')).default
-check('index.js 导出插件类', typeof apps === 'object')
+const apps = (await import('../index.js')).apps
+check('index.js 导出 apps 插件类表', typeof apps === 'object' && Object.keys(apps).length > 0)
 
 const expected = ['BiliSubscribe', 'BiliQuery', 'BiliManage']
 for (const name of expected) {

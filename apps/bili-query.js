@@ -6,9 +6,9 @@ import { getData } from '../model/Config.js'
 import * as Data from '../model/Data.js'
 import * as Api from '../model/Api.js'
 import * as Dynamic from '../model/Dynamic.js'
-import { renderDynamic, renderLoginQrcode } from '../model/Render.js'
+import { renderDynamic, renderLoginQrcode, renderSearchCard } from '../model/Render.js'
 import { startPush, stats } from '../model/Push.js'
-import { matchUid, replyError, splitArgs } from './helpers.js'
+import { matchUid, replyError, splitArgs } from '../model/helpers.js'
 import { sleep } from '../model/Utils.js'
 
 const logger = global.logger ?? console
@@ -124,7 +124,6 @@ export class BiliQuery extends plugin {
       const videos = list?.list?.vlist ?? []
       if (videos.length === 0) return e.reply('没有查询到视频')
 
-      const { renderSearchCard } = await import('../model/Render.js')
       for (const video of videos.slice(0, 3)) {
         try {
           const { buffer } = await renderSearchCard({

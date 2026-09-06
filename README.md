@@ -131,11 +131,14 @@ bilibili-dynamic/
 │   ├── Push.js              # 检测循环 / 过滤 / 模板 / 推送
 │   ├── Data.js              # 订阅数据操作
 │   ├── Config.js            # 配置与持久化
+│   ├── helpers.js           # 指令层公共辅助
 │   └── Utils.js             # 工具
 ├── config/                  # 配置（default_config.json 为默认值；config.json 为用户配置）
 ├── data/                    # 独立运行（开发/测试）时的数据回退目录
 └── test/                    # 测试脚本
 ```
+
+> 插件入口基于 `import.meta.url` 定位 `apps/` 目录并动态加载其中的插件类，新增指令文件放到 `apps/` 下即可自动加载，无需修改入口；`apps/` 下的普通函数导出会被自动跳过。
 
 运行时数据（订阅 bili_data.json / 图片缓存 cache/ / 字体 font/）存放在云崽根目录的
 `data/bilibili-dynamic/` 下；仅在插件脱离云崽独立运行时回退到插件目录内的 `data/`。
@@ -153,7 +156,7 @@ node test/real-api-test.js <动态ID>   # 真实 API 端到端（需网络）
 - 番剧动态按 `season_id` 匹配订阅（原插件按作者 mid 匹配，存在误配风险）
 - 转发消息卡片外观由协议端决定，不可配置（原插件的 forwardCard 模板不适用）
 - 未登录时 B 站部分接口有风控（-352），登录后正常
-- 需要已登录 B 站账号才能拉取「关注动态流」实现低延迟全量检测；因此订阅时会按 `autoFollow` 自动关注
+- 需要已登录 B 站账号才能拉取「关注动态流」实现低延迟全量检测：bot 账号未关注的 UP 无法被检测。订阅未关注的 UP 时按 `autoFollow` 配置决定是否自动关注；关闭 `autoFollow` 时该订阅会失败，需先手动用 bot 账号关注
 
 ## 📚 说明
 

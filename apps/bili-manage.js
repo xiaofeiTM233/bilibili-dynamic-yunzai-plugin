@@ -3,7 +3,7 @@
  */
 import plugin from '../../../lib/plugins/plugin.js'
 import * as Data from '../model/Data.js'
-import { canManage, resolveTarget, matchUid, replyError, splitArgs } from './helpers.js'
+import { canManage, resolveTarget, matchUid, replyError, splitArgs } from '../model/helpers.js'
 
 /** 解析可选 uid 参数（默认 0 = 该目标订阅的所有用户） */
 function parseUidArg(arg) {
