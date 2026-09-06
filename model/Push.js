@@ -101,7 +101,7 @@ async function dynamicLoop() {
 export async function dynamicCheck() {
   const data = getData()
   if (!data.cookie) return
-  if (allContacts().length === 0) return
+  if (Data.allContacts().length === 0) return
 
   const list = await Api.getNewDynamic()
   if (!list?.items) return
@@ -165,7 +165,7 @@ async function liveLoop() {
 export async function liveCheck() {
   const data = getData()
   if (!data.cookie) return
-  if (allContacts().length === 0) return
+  if (Data.allContacts().length === 0) return
 
   const liveList = await Api.getLiveList()
   if (!liveList?.rooms) return

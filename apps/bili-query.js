@@ -7,7 +7,7 @@ import * as Data from '../model/Data.js'
 import * as Api from '../model/Api.js'
 import * as Dynamic from '../model/Dynamic.js'
 import { renderDynamic, renderLoginQrcode, renderSearchCard } from '../model/Render.js'
-import { startPush, stats } from '../model/Push.js'
+import { startPush, stats, queueLength } from '../model/Push.js'
 import { matchUid, replyError, splitArgs } from '../model/helpers.js'
 import { sleep } from '../model/Utils.js'
 
@@ -202,7 +202,7 @@ export class BiliQuery extends plugin {
       `推送目标: ${contacts} 个\n` +
       `检测次数: 动态 ${stats.dynamicChecks} / 直播 ${stats.liveChecks}\n` +
       `已推送: ${stats.pushed} 条\n` +
-      `队列长度: ${Push.queueLength()}\n` +
+      `队列长度: ${queueLength()}\n` +
       `最近错误: ${stats.lastError || '无'}`,
     )
     return true
