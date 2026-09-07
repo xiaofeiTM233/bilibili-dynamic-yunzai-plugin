@@ -1,6 +1,6 @@
 {
   "name": "bilibili-dynamic-yunzai-plugin",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "云崽 Yunzai-Bot V3 的 B 站动态/直播订阅推送插件，基于 bilibili-dynamic-canvaskit（Skia）绘制动态卡片，参考 bilibili-dynamic-mirai-plugin 实现",
   "type": "module",
   "main": "index.js",
