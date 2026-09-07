@@ -421,6 +421,11 @@ function replaceTags(template, message) {
         return message.links?.[0]?.value ?? message.link ?? ''
       case 'links':
         return (message.links ?? [{ value: message.link ?? '' }]).map((l) => l.value).join('\n')
+      case 'draw':
+      case 'images':
+      case 'cover':
+        // 图片占位符：保留原样，由后续 TAG_RE 扫描 + imageOfTag 替换为图片段
+        return raw
       default:
         return `[不支持的类型: ${key}]`
     }
