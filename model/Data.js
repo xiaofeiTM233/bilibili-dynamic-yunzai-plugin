@@ -49,11 +49,16 @@ export function subscribedUids() {
 
 export function allContacts() {
   const set = new Set()
+  const add = (contact) => {
+    const expanded = expandGroupContact(contact)
+    if (expanded) for (const c of expanded) set.add(c)
+    else set.add(contact)
+  }
   for (const sub of Object.values(getData().dynamic)) {
-    for (const c of sub.contacts) set.add(c)
+    for (const c of sub.contacts) add(c)
   }
   for (const bangumi of Object.values(getData().bangumi)) {
-    for (const c of bangumi.contacts) set.add(c)
+    for (const c of bangumi.contacts) add(c)
   }
   return [...set]
 }
@@ -123,8 +128,156 @@ function cleanContactUid(contact, uid) {
 }
 
 /* ------------------------------------------------------------------ */
-/* uid 匹配（本地模糊搜索，对应 findLocalIdOrName / matchUser）           */
+/* 分组（对应 GroupService.kt）                                          */
+/* 分组名可作为订阅联系人：推送时展开为分组内所有 g/f 目标                  */
 /* ------------------------------------------------------------------ */
+
+function groupData() {
+  const data = getData()
+  if (!data.group) data.group = {}
+  return data.group
+}
+
+/** 联系人参数解析："f123" / "g123" / 纯数字（默认为群） */
+function parseContactArg(arg) {
+  const s = String(arg).trim()
+  if (!s) return null
+  if (/^f\d+$/.test(s)) return s
+  if (/^g\d+$/.test(s)) return s
+  if (/^\d+$/.test(s)) return `g${s}`
+  return null
+}
+
+export function createGroup(name, creator) {
+  const group = groupData()
+  if (group[name]) return '分组名称重复'
+  if (/^\d+$/.test(name)) return '分组名不能全为数字'
+  group[name] = { name, creator, admin: [], contacts: [] }
+  saveData()
+  return '创建成功'
+}
+
+export function delGroup(name, operator) {
+  const group = groupData()
+  const g = group[name]
+  if (!g) return `没有此分组 [${name}]`
+  if (g.creator !== operator && operator !== 'master') return '无权删除'
+  const data = getData()
+  for (const sub of Object.values(data.dynamic)) {
+    sub.contacts = sub.contacts.filter((c) => c !== name)
+  }
+  for (const bangumi of Object.values(data.bangumi)) {
+    bangumi.contacts = bangumi.contacts.filter((c) => c !== name)
+  }
+  delete data.filter[name]
+  delete data.atAll[name]
+  delete data.dynamicTemplate[name]
+  delete data.liveTemplate[name]
+  delete data.liveCloseTemplate[name]
+  delete group[name]
+  saveData()
+  return '删除成功'
+}
+
+export function listGroup(name, operator) {
+  const group = groupData()
+  if (name) {
+    const g = group[name]
+    if (!g) return '没有此分组哦'
+    return [
+      `分组: ${g.name}`,
+      `创建者: ${g.creator}`,
+      `管理员: ${g.admin.join(', ') || '无'}`,
+      `推送目标: ${g.contacts.join(', ') || '无'}`,
+    ].join('\n')
+  }
+  const lines = Object.values(group)
+    .filter((g) => operator === 'master' || g.creator === operator || g.admin.includes(operator))
+    .map((g) => `${g.name}@${g.creator}`)
+  return lines.length === 0 ? '没有创建或管理任何分组哦' : lines.join('\n')
+}
+
+export function setGroupAdmin(name, contacts, operator) {
+  const group = groupData()
+  const g = group[name]
+  if (!g) return `没有此分组 [${name}]`
+  if (g.creator !== operator && operator !== 'master') return '无权添加'
+  let failMsg = ''
+  for (const c of contacts.split(/[,，]/)) {
+    if (/^\d+$/.test(c.trim())) {
+      if (!g.admin.includes(c.trim())) g.admin.push(c.trim())
+    } else {
+      failMsg += `${c}, `
+    }
+  }
+  saveData()
+  return failMsg ? `[${failMsg}] 添加失败` : '添加成功'
+}
+
+export function banGroupAdmin(name, contacts, operator) {
+  const group = groupData()
+  const g = group[name]
+  if (!g) return `没有此分组 [${name}]`
+  if (g.creator !== operator && operator !== 'master') return '无权删除'
+  let failMsg = ''
+  for (const c of contacts.split(/[,，]/)) {
+    const removed = g.admin.filter((a) => a !== c.trim())
+    if (removed.length === g.admin.length) failMsg += `${c}, `
+    g.admin = removed
+  }
+  saveData()
+  return failMsg ? `[${failMsg}] 删除失败` : '删除成功'
+}
+
+export function checkGroupPerm(name, operator) {
+  const g = groupData()[name]
+  if (!g) return false
+  return g.creator === operator || operator === 'master' || g.admin.includes(String(operator))
+}
+
+export function pushGroupContact(name, contacts, operator) {
+  const group = groupData()
+  const g = group[name]
+  if (!g) return `没有此分组 [${name}]`
+  if (!checkGroupPerm(name, operator)) return '无权添加'
+  let failMsg = ''
+  for (const c of contacts.split(/[,，]/)) {
+    const parsed = parseContactArg(c)
+    if (parsed) {
+      if (!g.contacts.includes(parsed)) g.contacts.push(parsed)
+    } else {
+      failMsg += `${c}, `
+    }
+  }
+  saveData()
+  return failMsg ? `[${failMsg}] 添加失败` : '添加成功'
+}
+
+export function delGroupContact(name, contacts, operator) {
+  const group = groupData()
+  const g = group[name]
+  if (!g) return `没有此分组 [${name}]`
+  if (!checkGroupPerm(name, operator)) return '无权删除'
+  let failMsg = ''
+  for (const c of contacts.split(/[,，]/)) {
+    const parsed = parseContactArg(c)
+    if (parsed && g.contacts.includes(parsed)) {
+      g.contacts = g.contacts.filter((x) => x !== parsed)
+    } else {
+      failMsg += `${c}, `
+    }
+  }
+  saveData()
+  return failMsg ? `[${failMsg}] 删除失败` : '删除成功'
+}
+
+/** 分组名 -> 组内推送目标（订阅联系人中出现分组名时展开） */
+export function expandGroupContact(contact) {
+  const g = getData().group?.[contact]
+  return g?.contacts?.length ? g.contacts : null
+}
+
+
 
 /**
  * 通过 uid 数字或用户名匹配订阅中的用户

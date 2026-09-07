@@ -590,7 +590,15 @@ async function sendMessage(message) {
     }
     const messages = buildMessages(message, template, contacts)
 
+    // 分组名展开为组内全部推送目标
+    const targets = []
     for (const contact of contacts) {
+      const expanded = Data.expandGroupContact(contact)
+      if (expanded) for (const c of expanded) targets.push(c)
+      else targets.push(contact)
+    }
+
+    for (const contact of targets) {
       // @全体
       let withAtAll = false
       if (message.kind !== 'liveClose' && !message.contact) {

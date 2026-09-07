@@ -11,37 +11,51 @@ import { canManage, resolveTarget, matchUid, subscribeUser, replyError, splitArg
 const logger = global.logger ?? console
 
 const HELP_TEXT = `【B站动态订阅】
-#bili订阅 <UID/用户名> [群号]    添加订阅
-#bili取订 <UID/用户名> [群号]    取消订阅
-#bili删除全部订阅 [群号]         清空目标的订阅
-#bili订阅列表 [群号]             查看目标订阅列表
-#bili追番 <ss/md/ep+ID> [群号]   订阅番剧（如 ss12345）
-#bili弃番 <ss/md+ID> [群号]      取消追番
+#bili(订阅/add) <UID/用户名> [群号]      添加订阅
+#bili(取订/del) <UID/用户名> [群号]      取消订阅
+#bili(删除全部订阅/delAll) [群号]        清空目标的订阅
+#bili(订阅列表/list) [群号]              查看目标订阅列表
+#bili(全部订阅/listAll/la)               全部订阅列表（主人）
+#bili(用户列表/listUser/lu) [UID]        查看订阅目标（主人）
+#bili(追番/弃番) <ss/md/ep+ID> [群号]    订阅/取消番剧
 ─── 查询 ───
-#bili动态 <UID/用户名> [数量]    查看最新动态
-#bili视频 <UID/用户名>           查看最新视频
-#bili动态详情 <动态ID>           查看指定动态
-#bili查找用户 <关键词>           搜索B站用户
+#bili(动态/new) <UID/用户名> [数量]      查看最新动态
+#bili(视频/video) <UID/用户名>           查看最新视频
+#bili(动态详情/search/s) <动态ID>        查看指定动态
+#bili(直播/live)                         随机直播卡片
+#bili查找用户 <关键词>                   搜索B站用户
 ─── 配置 ───
-#bili颜色 <UID> <#hex颜色>       设置该UP推送卡片主题色
-#bili模板 <d/l/c> <模板名>       设置推送模板
-#biliat全体 <类型> [UID]         设置@全体（群管理）
-#bili取消at全体 <类型> [UID]     取消@全体
-#biliat全体列表 [UID]            查看@全体设置
+#bili(颜色/color) <UID> <#hex颜色>       设置该UP推送卡片主题色
+#bili(模板/t) <d/l/c/le> <模板名>        设置推送模板
+#bili(模板列表/tl) [类型]                查看模板变量
+#bili配置 [UID] [群号]                   交互式配置
+#bili(at全体/aa) <类型> [UID]            设置@全体（群管理）
+#bili(取消at全体/daa) <类型> [UID]       取消@全体
+#bili(at全体列表/laa) [UID]              查看@全体设置
 ─── 过滤器 ───
-#bili类型过滤 <类型> [UID]       类型黑/白名单
-#bili正则过滤 <正则> [UID]       内容正则过滤
-#bili过滤模式 <t/r> <w/b> [UID]  切换过滤模式
-#bili过滤列表 [UID]              查看过滤器
-#bili过滤删除 <索引> [UID]       删除过滤器
+#bili(类型过滤/ft) <类型> [UID]          类型黑/白名单
+#bili(正则过滤/fr) <正则> [UID]          内容正则过滤
+#bili(过滤模式/fm) <t/r> <w/b> [UID]     切换过滤模式
+#bili(过滤列表/fl) [UID]                 查看过滤器
+#bili(过滤删除/fd) <索引> [UID]          删除过滤器
+─── 分组 ───
+#bili(创建分组/create) <分组名>          创建推送分组
+#bili(分组列表/lg) [分组名]              分组列表/详情
+#bili(删除分组/dg) <分组名>              删除分组
+#bili(添加分组/push) <分组名> <目标>     添加推送目标
+#bili ban <分组名> <目标>                移除推送目标
+#bili(添加分组管理员/aga) <分组名> <QQ>  设置分组管理员
+#bili(删除分组管理员/bga) <分组名> <QQ>  移除分组管理员
 ─── 管理（仅主人）───
-#bili登录                        扫码登录B站账号
-#bili全部订阅                    查看全部订阅
-#bili用户列表 [UID]              查看订阅目标
-#bili状态                        插件运行状态
+#bili(登录/login)                        扫码登录B站账号
+#bili(reload/重载)                       重载配置
+#bili(clear/清理失效订阅)                清理失效群/好友订阅
+#bili状态                                插件运行状态
 ─── 说明 ───
 过滤器类型: 动态/转发动态/视频/音乐/专栏/直播
-at全体类型: 全部/全部动态/视频/音乐/专栏/直播`
+at全体类型: 全部/全部动态/视频/音乐/专栏/直播
+mirai 风格英文子命令均可使用，如: #bili add 487550002
+群聊发送B站链接/分享卡片可自动解析绘图（At机器人触发）`
 
 export class BiliSubscribe extends plugin {
   constructor() {
@@ -51,15 +65,15 @@ export class BiliSubscribe extends plugin {
       event: 'message',
       priority: 500,
       rule: [
-        { reg: '^#bili(帮助|help|菜单)$', fnc: 'help' },
-        { reg: '^#bili(订阅|添加|add)\\s*(.*)$', fnc: 'subscribe' },
-        { reg: '^#bili(取订|删除订阅|取消订阅|del)\\s*(.*)$', fnc: 'unsubscribe' },
-        { reg: '^#bili删除全部订阅\\s*(\\d*)$', fnc: 'removeAll' },
-        { reg: '^#bili(订阅列表|列表|list)\\s*(\\d*)$', fnc: 'list' },
-        { reg: '^#bili(全部订阅列表|全部订阅|订阅总数)$', fnc: 'listAll', permission: 'master' },
-        { reg: '^#bili(用户列表|谁订阅了)\\s*(.*)$', fnc: 'listUser', permission: 'master' },
-        { reg: '^#bili(追番|订阅番剧)\\s*(ss|md|ep)?(\\d+)\\s*(\\d*)$', fnc: 'bangumiSubscribe' },
-        { reg: '^#bili(弃番|取消追番)\\s*(ss|md|ep)?(\\d+)\\s*(\\d*)$', fnc: 'bangumiUnsubscribe' },
+        { reg: '^#bili\\s*(帮助|help|菜单|menu|h)$', fnc: 'help' },
+        { reg: '^#bili\\s*(删除全部订阅|delAll)\\s*(\\d*)$', fnc: 'removeAll' },
+        { reg: '^#bili\\s*(订阅|添加|add|follow)\\s*(.*)$', fnc: 'subscribe' },
+        { reg: '^#bili\\s*(取订|删除订阅|取消订阅|del|unfollow)\\s*(.*)$', fnc: 'unsubscribe' },
+        { reg: '^#bili\\s*(订阅列表|列表|list)\\s*(\\d*)$', fnc: 'list' },
+        { reg: '^#bili\\s*(全部订阅列表|全部订阅|订阅总数|listAll|la)$', fnc: 'listAll', permission: 'master' },
+        { reg: '^#bili\\s*(用户列表|谁订阅了|listUser|lu)\\s*(.*)$', fnc: 'listUser', permission: 'master' },
+        { reg: '^#bili\\s*(追番|订阅番剧)\\s*(ss|md|ep)?(\\d+)\\s*(\\d*)$', fnc: 'bangumiSubscribe' },
+        { reg: '^#bili\\s*(弃番|取消追番)\\s*(ss|md|ep)?(\\d+)\\s*(\\d*)$', fnc: 'bangumiUnsubscribe' },
       ],
     })
   }
@@ -71,7 +85,7 @@ export class BiliSubscribe extends plugin {
 
   async subscribe(e) {
     const args = splitArgs(e.msg.replace(/^#bili(订阅|添加|add)\s*/, ''))
-    if (!args[0]) return e.reply('用法：#bili订阅 <UID/用户名> [群号]')
+    if (!args[0]) return e.reply('用法：#bili订阅/add <UID/用户名> [群号]')
     const contact = resolveTarget(e, args[1])
     if (contact === null) return e.reply('只有主人可以为其他目标设置订阅')
 
@@ -98,8 +112,8 @@ export class BiliSubscribe extends plugin {
   }
 
   async unsubscribe(e) {
-    const args = splitArgs(e.msg.replace(/^#bili(取订|删除订阅|取消订阅|del)\s*/, ''))
-    if (!args[0]) return e.reply('用法：#bili取订 <UID/用户名> [群号]')
+    const args = splitArgs(e.msg.replace(/^#bili\s*(取订|删除订阅|取消订阅|del|unfollow)\s*/, ''))
+    if (!args[0]) return e.reply('用法：#bili取订/del <UID/用户名> [群号]')
     const contact = resolveTarget(e, args[1])
     if (contact === null) return e.reply('只有主人可以为其他目标设置订阅')
 
@@ -122,7 +136,7 @@ export class BiliSubscribe extends plugin {
   }
 
   async removeAll(e) {
-    const contact = resolveTarget(e, e.msg.replace(/^#bili删除全部订阅\s*/, ''))
+    const contact = resolveTarget(e, e.msg.replace(/^#bili\s*(删除全部订阅|delAll)\s*/, ''))
     if (contact === null) return e.reply('只有主人可以操作其他目标')
     Data.removeAllSubscribe(contact)
     e.reply(`已删除${Data.contactLabel(contact)}的全部订阅数据`)
@@ -130,7 +144,7 @@ export class BiliSubscribe extends plugin {
   }
 
   list(e) {
-    const contact = resolveTarget(e, e.msg.replace(/^#bili(订阅列表|列表|list)\s*/, ''))
+    const contact = resolveTarget(e, e.msg.replace(/^#bili\s*(订阅列表|列表|list)\s*/, ''))
     if (contact === null) return e.reply('只有主人可以查看其他目标')
     e.reply(Data.listSubscribe(contact))
     return true
@@ -142,7 +156,7 @@ export class BiliSubscribe extends plugin {
   }
 
   listUser(e) {
-    const arg = e.msg.replace(/^#bili(用户列表|谁订阅了)\s*/, '').trim()
+    const arg = e.msg.replace(/^#bili\s*(用户列表|谁订阅了|listUser|lu)\s*/, '').trim()
     let target = null
     if (arg) {
       const matched = matchUid(arg)
@@ -154,7 +168,7 @@ export class BiliSubscribe extends plugin {
   }
 
   async bangumiSubscribe(e) {
-    const m = /^#bili(追番|订阅番剧)\s*(ss|md|ep)?(\d+)\s*(\d*)$/.exec(e.msg)
+    const m = /^#bili\s*(追番|订阅番剧)\s*(ss|md|ep)?(\d+)\s*(\d*)$/.exec(e.msg)
     const id = `${m[2] ?? 'ss'}${m[3]}`
     const contact = resolveTarget(e, m[4])
     if (contact === null) return e.reply('只有主人可以为其他目标设置订阅')

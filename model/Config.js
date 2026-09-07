@@ -129,6 +129,8 @@ export function defaultData() {
     filter: {},
     /** At全体，key: contact -> uid -> 类型数组 [all/dynamic/video/music/article/live] */
     atAll: {},
+    /** 推送分组，key: 分组名 -> { name, creator, admin: [], contacts: ["g<群号>"/"f<QQ号>"] } */
+    group: {},
     /** 每目标推送模板选择，key: contact -> 模板名 */
     dynamicTemplate: {},
     liveTemplate: {},

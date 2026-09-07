@@ -42,31 +42,59 @@ npm install   # 或 pnpm install
 
 ## 指令
 
+指令统一使用 `#bili` 前缀，同时兼容 mirai 插件的英文子命令写法（`#bili add 646195980` 等价于 `#bili订阅 646195980`）。
+
 | 指令 | 说明 |
 | --- | --- |
 | `#bili帮助` | 指令帮助 |
-| `#bili订阅 <UID/用户名> [群号]` | 添加订阅 |
-| `#bili取订 <UID/用户名> [群号]` | 取消订阅 |
-| `#bili删除全部订阅 [群号]` | 清空目标订阅（群管理/主人） |
-| `#bili订阅列表 [群号]` | 查看订阅列表 |
+| `#bili订阅/add <UID/用户名> [群号]` | 添加订阅 |
+| `#bili取订/del <UID/用户名> [群号]` | 取消订阅 |
+| `#bili删除全部订阅/delAll [群号]` | 清空目标订阅（群管理/主人） |
+| `#bili订阅列表/list [群号]` | 查看订阅列表 |
+| `#bili全部订阅/listAll` | 全部订阅列表（主人） |
+| `#bili用户列表/listUser [UID]` | 查看订阅目标（主人） |
 | `#bili追番 <ss/md/ep+ID> [群号]` | 订阅番剧，如 `#bili追番 ss12345` |
 | `#bili弃番 <ss/md+ID> [群号]` | 取消追番 |
-| `#bili动态 <UID> [数量]` | 查看最新动态（最多 5 条） |
-| `#bili视频 <UID>` | 查看最新视频 |
-| `#bili动态详情 <动态ID>` | 查看指定动态 |
+| `#bili动态/new <UID> [数量]` | 查看最新动态 |
+| `#bili视频/video <UID>` | 查看最新视频 |
+| `#bili动态详情/search/s <动态ID>` | 查看指定动态 |
+| `#bili直播/live` | 随机推荐直播间卡片 |
 | `#bili查找用户 <关键词>` | 搜索 B 站用户 |
-| `#bili颜色 <UID> <#hex>` | 设置该 UP 推送卡片主题色（多色 `#a;#b` 自定义渐变） |
-| `#bili模板 <d/l/c> <模板名>` | 设置推送模板（d 动态 / l 直播 / c 下播） |
-| `#biliat全体 <类型> [UID]` | 设置 @全体（群管理/主人） |
-| `#bili取消at全体 <类型> [UID]` | 取消 @全体 |
-| `#biliat全体列表 [UID]` | 查看 @全体设置 |
-| `#bili类型过滤 <类型> [UID]` | 类型过滤器 |
-| `#bili正则过滤 <正则> [UID]` | 内容正则过滤器（含空格用引号包裹） |
-| `#bili过滤模式 <t/r> <w/b> [UID]` | 黑/白名单切换 |
-| `#bili过滤列表 [UID]` / `#bili过滤删除 <索引> [UID]` | 过滤器查看/删除 |
-| `#bili登录` | 扫码登录（主人） |
-| `#bili全部订阅` / `#bili用户列表 [UID]` | 管理查询（主人） |
+| `#bili颜色/color <UID> <#hex>` | 设置该 UP 推送卡片主题色（多色 `#a;#b` 自定义渐变） |
+| `#bili模板/t <d/l/c/le> <模板名>` | 设置推送模板（d 动态 / l 直播 / c 或 le 下播） |
+| `#bili模板列表/tl [类型]` | 查看模板变量 |
+| `#bili配置/config [UID] [群号]` | 交互式配置（At全体/主题色/模板/过滤器） |
+| `#biliat全体/aa <类型> [UID]` | 设置 @全体（群管理/主人） |
+| `#bili取消at全体/daa <类型> [UID]` | 取消 @全体 |
+| `#biliat全体列表/laa [UID]` | 查看 @全体设置 |
+| `#bili类型过滤/ft <类型> [UID]` | 类型过滤器 |
+| `#bili正则过滤/fr <正则> [UID]` | 内容正则过滤器（含空格用引号包裹） |
+| `#bili过滤模式/fm <t/r> <w/b> [UID]` | 黑/白名单切换 |
+| `#bili过滤列表/fl [UID]` / `#bili过滤删除/fd <索引> [UID]` | 过滤器查看/删除 |
+| `#bili创建分组/create <分组名>` | 创建推送分组 |
+| `#bili分组列表/lg [分组名]` | 分组列表/详情 |
+| `#bili删除分组/dg <分组名>` | 删除分组 |
+| `#bili添加分组/push <分组名> <目标>` | 向分组添加推送目标（`群号` 或 `f<QQ>`，逗号分隔） |
+| `#bili ban <分组名> <目标>` | 从分组移除推送目标 |
+| `#bili添加分组管理员/aga <分组名> <QQ>` | 设置分组管理员 |
+| `#bili删除分组管理员/bga <分组名> <QQ>` | 移除分组管理员 |
+| `#bili登录/login` | 扫码登录（主人） |
+| `#bili重载/reload` | 重载配置（主人） |
+| `#bili清理失效订阅/clear` | 清理失效群/好友的订阅（主人） |
 | `#bili状态` | 插件运行状态（主人） |
+
+## 链接/卡片解析（当前已停用）
+
+群聊中出现 B 站链接（BV/av/cv/动态/opus/直播间/空间/ss·ep·md/`b23.tv` 短链）或 QQ 分享卡片时，自动绘制对应卡片图回复（与 mirai 插件的 ListenerTasker 行为一致）。
+
+配置项（`config.json`）：
+
+| 配置项 | 默认 | 说明 |
+| --- | --- | --- |
+| `linkResolve.triggerMode` | `At` | 触发模式：`At`（@机器人时）/ `Always` / `Never` |
+| `linkResolve.returnLink` | `false` | 回复图片时是否附加原始链接 |
+| `linkResolve.regex` | （内置） | 入口正则门禁，命中后才逐类型解析 |
+| `showLoadingMessage` | `true` | 解析/查询时是否发送「加载中...」提示 |
 
 过滤类型：`动态 / 转发动态 / 视频 / 音乐 / 专栏 / 直播`；@全体类型：`全部 / 全部动态 / 视频 / 音乐 / 专栏 / 直播`。
 过滤器 uid 填 `0` 或不填表示该目标订阅的所有用户。
@@ -123,12 +151,15 @@ bilibili-dynamic/
 ├── apps/                    # 云崽指令层
 │   ├── bili-sub.js          # 订阅 / 追番 / 列表
 │   ├── bili-query.js        # 查询 / 登录 / 状态
-│   └── bili-manage.js       # 颜色 / 模板 / @全体 / 过滤器
+│   ├── bili-manage.js       # 颜色 / 模板 / @全体 / 过滤器
+│   ├── bili-admin.js        # 直播 / 重载 / 清理 / 分组 / 交互配置
+│   └── bili-listener.js     # 群聊链接/分享卡片自动解析
 ├── model/                   # 业务层
 │   ├── Api.js               # B 站 API（WBI 签名 / buvid3 / 登录）
 │   ├── Dynamic.js           # 动态数据装配
 │   ├── Render.js            # canvaskit 渲染封装（字体 / 主题 / 缓存）
 │   ├── Push.js              # 检测循环 / 过滤 / 模板 / 推送
+│   ├── ResolveLink.js       # 链接解析（对应 ResolveLinkService）
 │   ├── Data.js              # 订阅数据操作
 │   ├── Config.js            # 配置与持久化
 │   ├── helpers.js           # 指令层公共辅助

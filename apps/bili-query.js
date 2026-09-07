@@ -91,7 +91,7 @@ export class BiliQuery extends plugin {
     try {
       e.reply('加载中...', true)
       const list = await Api.getUserNewDynamic(matched.uid, true)
-      const items = (list?.items ?? []).filter((item) => item.type !== 'DYNAMIC_TYPE_FORWARD').slice(0, count)
+      const items = (list?.items ?? []).slice(0, count)
       if (items.length === 0) return e.reply('没有查询到动态')
 
       for (const item of items) {
@@ -159,7 +159,7 @@ export class BiliQuery extends plugin {
 
   /** 通过 ID 查询动态（对应 /bili search） */
   async queryDynamicDetail(e) {
-    const did = e.msg.replace(/^#bili(动态详情|搜动态)\s*/, '')
+    const did = e.msg.replace(/^#bili\s*(动态详情|搜动态|search|s)\s*/, '')
     try {
       e.reply('加载中...', true)
       const item = await Api.getDynamicDetail(did)
@@ -175,7 +175,7 @@ export class BiliQuery extends plugin {
 
   /** 搜索 B 站用户 */
   async searchUser(e) {
-    const keyword = e.msg.replace(/^#bili(查找用户|搜索用户)\s+/, '').trim()
+    const keyword = e.msg.replace(/^#bili\s*(查找用户|搜索用户)\s+/, '').trim()
     try {
       e.reply('加载中...', true)
       const result = await Api.searchUser(keyword, 1, 10)

@@ -24,7 +24,7 @@ const check = (name, ok, extra = '') => {
 const apps = (await import('../index.js')).apps
 check('index.js 导出 apps 插件类表', typeof apps === 'object' && Object.keys(apps).length > 0)
 
-const expected = ['BiliSubscribe', 'BiliQuery', 'BiliManage']
+const expected = ['BiliSubscribe', 'BiliQuery', 'BiliManage', 'BiliAdmin', 'BiliListener']
 for (const name of expected) {
   const cls = apps[name]
   check(`加载 ${name}`, typeof cls === 'function' && cls.prototype instanceof (await import('./plugin-stub.js')).default)
@@ -36,7 +36,8 @@ for (const name of expected) {
     const instance = new apps[name]({
       // 最小事件桩
     })
-    check(`实例化 ${name}（规则 ${instance.config.rule.length} 条）`, Array.isArray(instance.config.rule) && instance.config.rule.length > 0)
+    const ok = Array.isArray(instance.config.rule) && (name === 'BiliListener' || instance.config.rule.length > 0)
+    check(`实例化 ${name}（规则 ${instance.config.rule.length} 条）`, ok)
   } catch (err) {
     check(`实例化 ${name}`, false, err.message)
   }
