@@ -23,7 +23,7 @@ export function canManage(e) {
 export function resolveTarget(e, targetArg) {
   if (!targetArg) return Data.contactOf(e)
   if (!e.isMaster) return null
-  return /^\d+$/.test(targetArg) ? `g${targetArg}` : targetArg
+  return /^-?\d+$/.test(targetArg) ? (targetArg.startsWith('-') ? targetArg : `-${targetArg}`) : targetArg
 }
 
 /** 解析 uid/用户名 参数（对应 matchUser） */

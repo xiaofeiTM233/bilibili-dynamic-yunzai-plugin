@@ -6,7 +6,7 @@ import { getData, saveData, reloadConfig, getConfig } from '../model/Config.js'
 import * as Data from '../model/Data.js'
 import * as Api from '../model/Api.js'
 import * as Dynamic from '../model/Dynamic.js'
-import { renderSearchCard } from '../model/Render.js'
+import { renderSearchCard, resetRuntime } from '../model/Render.js'
 import { matchUid, resolveTarget, replyError } from '../model/helpers.js'
 import { formatTime } from '../model/Utils.js'
 
@@ -102,6 +102,8 @@ export class BiliAdmin extends plugin {
   /** /bili reload：重载配置 */
   async reload(e) {
     reloadConfig()
+    // 图片质量/主题等配置可能已变化，重建渲染运行时
+    await resetRuntime()
     e.reply('配置重载成功')
     return true
   }
@@ -145,9 +147,7 @@ export class BiliAdmin extends plugin {
       const data = getData()
       delete data.filter[contact]
       delete data.atAll[contact]
-      delete data.dynamicTemplate[contact]
-      delete data.liveTemplate[contact]
-      delete data.liveCloseTemplate[contact]
+      Data.removeTemplateContact(contact)
     }
     getData().group ??= {}
     const { saveData } = await import('../model/Config.js')
@@ -240,7 +240,7 @@ export class BiliAdmin extends plugin {
     const atAll = getData().atAll[contact]?.[uid]?.length > 0
     const filter = getData().filter[contact]?.[uid]
     const modeText = filter
-      ? `类型: ${filter.typeSelect.mode === 'white' ? '白名单' : '黑名单'} | 正则: ${filter.regularSelect.mode === 'white' ? '白名单' : '黑名单'}`
+      ? `类型: ${filter.typeSelect.mode === 'WHITE_LIST' ? '白名单' : '黑名单'} | 正则: ${filter.regularSelect.mode === 'WHITE_LIST' ? '白名单' : '黑名单'}`
       : '无过滤器'
 
     const lines = [
@@ -250,7 +250,7 @@ export class BiliAdmin extends plugin {
       '',
       '当前可配置项:',
     ]
-    const isGroup = contact.startsWith('g')
+    const isGroup = contact.startsWith('-')
     if (isGroup) {
       lines.push('  1: At全体 [' + atAll + ']', '      1.1: 当前At全体项', '      1.2: 添加At全体', '      1.3: 删除At全体')
     }
@@ -379,8 +379,8 @@ export class BiliAdmin extends plugin {
           state.step = { kind: 'filter-reg' }
         } else if (b === '4') {
           const filter = getData().filter[contact]?.[uid]
-          const typeMode = filter?.typeSelect.mode === 'white' ? '白名单' : '黑名单'
-          const regMode = filter?.regularSelect.mode === 'white' ? '白名单' : '黑名单'
+          const typeMode = filter?.typeSelect.mode === 'WHITE_LIST' ? '白名单' : '黑名单'
+          const regMode = filter?.regularSelect.mode === 'WHITE_LIST' ? '白名单' : '黑名单'
           e.reply(`类型过滤器: ${typeMode}\n正则过滤器: ${regMode}\n请选择要切换的过滤的类型\nt: 类型过滤器\nr: 正则过滤器`)
           state.step = { kind: 'filter-mode' }
         } else if (b === '5') {
@@ -440,7 +440,7 @@ export class BiliAdmin extends plugin {
         if (input !== 't' && input !== 'r') return true
         const filter = getData().filter[contact]?.[uid]
         const current = input === 't' ? filter?.typeSelect.mode : filter?.regularSelect.mode
-        const mode = current === 'white' ? 'black' : 'white'
+        const mode = current === 'WHITE_LIST' ? 'BLACK_LIST' : 'WHITE_LIST'
         e.reply(Data.setFilterMode(input, mode, uid, contact))
         state.step = null
         return true

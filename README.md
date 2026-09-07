@@ -19,8 +19,11 @@ YunZai-Bot/
 ├── plugins/
 │   └── bilibili-dynamic/    # 本插件（指令与渲染代码、配置）
 └── data/
-    └── bilibili-dynamic/    # 运行时数据（自动创建）
-        ├── bili_data.json   # 订阅 / 过滤器 / 模板 / cookie 等数据
+    └── bilibili-dynamic/    # 运行时数据
+        ├── BiliConfig.yml   # 插件配置
+        ├── BiliData.yml      # 订阅 / 过滤器 / 模板 / 分组等数据
+        ├── ImageQuality.yml  # 图片分辨率
+        ├── ImageTheme.yml    # 图片主题
         ├── cache/           # 推送图片缓存
         └── font/            # 绘图字体
 ```
@@ -87,7 +90,7 @@ npm install   # 或 pnpm install
 
 群聊中出现 B 站链接（BV/av/cv/动态/opus/直播间/空间/ss·ep·md/`b23.tv` 短链）或 QQ 分享卡片时，自动绘制对应卡片图回复（与 mirai 插件的 ListenerTasker 行为一致）。
 
-配置项（`config.json`）：
+配置项（`BiliConfig.yml`）：
 
 | 配置项 | 默认 | 说明 |
 | --- | --- | --- |
@@ -101,33 +104,30 @@ npm install   # 或 pnpm install
 
 ## 配置
 
-配置文件：`config/config.json`（首次可直接从 `config/default_config.json` 复制修改，未配置项使用默认值）。
+配置文件为云崽 `data/bilibili-dynamic/` 下的 4 个 YAML 文件，**与 mirai 版插件完全通用**：把 mirai 的 `BiliData.yml`、`BiliConfig.yml`、`ImageQuality.yml`、`ImageTheme.yml` 直接复制进来即可使用。文件缺失时首启会自动从插件自带的 `config/*.default.yml` 复制补齐。
+
+主要配置项：
 
 | 配置项 | 默认 | 说明 |
 | --- | --- | --- |
-| `interval` | `15` | 动态检测间隔（秒，最低 10） |
-| `liveInterval` | `20` | 直播检测间隔（秒） |
-| `lowSpeed` | `0-0x2` | 低频检测，如 `3-8x2` 表示 3 点到 8 点间隔 ×2 |
-| `drawEnable` | `true` | 绘图开关 |
-| `quality` | `1000w` | 图片分辨率：`800w / 1000w / 1200w / 1500w` |
-| `theme` | `v3` | 主题：`v3 / v3RainbowOutline / v2` |
-| `defaultColor` | `#d3edfa` | 默认主题色，支持 `#a;#b` 多色渐变 |
-| `cardOrnament` | `FanCard` | 卡片装饰：`FanCard / QrCode / None` |
-| `downloadOriginal` | `true` | 是否下载原图 |
-| `badgeEnable` | `{left:true,right:false}` | 卡片顶部角标开关 |
-| `colorGenerator` | — | 单色时自动渐变的 HSB 参数 |
-| `template.dynamic/live/liveClose` | `OneMsg` 等 | 默认推送模板 |
-| `dynamicTemplates` 等 | — | 模板定义（支持自定义新增） |
-| `atAllPlus` | `PLUS_END` | @全体拼接：`PLUS_END` / `SINGLE_MESSAGE` |
-| `pushInterval` / `messageInterval` | `500 / 100` | 推送节流（毫秒） |
-| `autoFollow` | `true` | 订阅时是否自动关注（需登录账号） |
-| `followGroup` | `Bot关注` | 自动关注保存的 B 站关注分组 |
-| `liveCloseNotify` | `true` | 下播通知开关 |
-| `cacheClearDays` | `7` | 缓存图片保留天数（0 不清理，每天 4 点清理） |
-| `font` | 空 | 字体文件名（放 `resources/font/` 下） |
-| `timeout` | `10` | API 超时（秒） |
-| `admin` | 空 | 管理员 QQ（空则使用云崽主人） |
-| `proxy` | 空 | HTTP 代理 |
+| `admin` | `0` | 管理员 QQ（0 则使用云崽主人） |
+| `checkConfig.interval / liveInterval` | `15 / 20` | 动态/直播检测间隔（秒） |
+| `checkConfig.lowSpeed` | `0-0x2` | 低频检测，如 `3-8x2` 表示 3 点到 8 点间隔 ×2 |
+| `checkConfig.timeout` | `10` | API 超时（秒） |
+| `enableConfig.drawEnable` | `true` | 绘图开关 |
+| `enableConfig.notifyEnable` | `true` | 操作通知开关 |
+| `enableConfig.liveCloseNotifyEnable` | `true` | 下播通知开关 |
+| `accountConfig.cookie` | 空 | B 站 cookie（`#bili登录` 也可写入） |
+| `accountConfig.autoFollow / followGroup` | `true / Bot关注` | 订阅时自动关注及分组 |
+| `imageConfig.quality / theme` | `1000w / v3` | 图片分辨率与主题（被 ImageQuality/ImageTheme 的 customOverload 覆盖） |
+| `imageConfig.font / defaultColor / cardOrnament / colorGenerator / badgeEnable` | — | 绘图相关 |
+| `templateConfig.defaultDynamicPush / defaultLivePush / defaultLiveClose` | `OneMsg` 等 | 默认推送模板 |
+| `templateConfig.dynamicPush / livePush / liveClose` | — | 模板定义（支持自定义新增） |
+| `pushConfig.pushInterval / messageInterval / atAllPlus` | `500 / 100 / PLUS_END` | 推送节流与 @全体拼接 |
+| `cacheConfig.downloadOriginal / expires.*` | `true / 7` | 原图下载与缓存保留天数（每天 4 点清理） |
+| `linkResolveConfig.triggerMode / returnLink` | `At / false` | 链接解析触发模式（功能当前停用） |
+
+`ImageQuality.yml` / `ImageTheme.yml` 与 mirai 完全同构：开启 `customOverload` 后，`customQuality` / `customTheme` 将覆盖 `BiliConfig.imageConfig` 中对应的 quality / theme。
 
 ### 模板变量
 
@@ -164,14 +164,13 @@ bilibili-dynamic/
 │   ├── Config.js            # 配置与持久化
 │   ├── helpers.js           # 指令层公共辅助
 │   └── Utils.js             # 工具
-├── config/                  # 配置（default_config.json 为默认值；config.json 为用户配置）
 ├── data/                    # 独立运行（开发/测试）时的数据回退目录
 └── test/                    # 测试脚本
 ```
 
 > 插件入口基于 `import.meta.url` 定位 `apps/` 目录并动态加载其中的插件类，新增指令文件放到 `apps/` 下即可自动加载，无需修改入口；`apps/` 下的普通函数导出会被自动跳过。
 
-运行时数据（订阅 bili_data.json / 图片缓存 cache/ / 字体 font/）存放在云崽根目录的
+运行时数据（BiliConfig.yml / BiliData.yml / ImageQuality.yml / ImageTheme.yml / 图片缓存 cache/ / 字体 font/）存放在云崽根目录的
 `data/bilibili-dynamic/` 下；仅在插件脱离云崽独立运行时回退到插件目录内的 `data/`。
 
 ## 测试

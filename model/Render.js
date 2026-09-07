@@ -191,7 +191,7 @@ async function createRuntime() {
     fetchImpl: safeFetch,
   })
 
-  logger.info(`[bilibili-dynamic] 渲染运行时就绪 quality=${rt.quality.imageWidth}px theme=${cfg.theme}`)
+  logger.info(`[bilibili-dynamic] 渲染运行时就绪 quality=${rt.quality.imageWidth}px theme=${typeof cfg.theme === 'string' ? cfg.theme : 'custom'}`)
   return rt
 }
 

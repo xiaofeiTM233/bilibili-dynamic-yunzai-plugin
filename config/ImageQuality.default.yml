@@ -1,0 +1,28 @@
+help: https://github.com/Colter23/bilibili-dynamic-mirai-plugin#ImageQuality.yml
+customOverload: false
+customQuality:
+  imageWidth: 1000
+  cardMargin: 30
+  cardPadding: 30
+  cardArc: 15
+  nameFontSize: 36
+  titleFontSize: 32
+  subTitleFontSize: 28
+  descFontSize: 26
+  contentFontSize: 32
+  footerFontSize: 28
+  cardOutlineWidth: 3
+  drawOutlineWidth: 3
+  faceSize: 80
+  noPendantFaceInflate: 10
+  pendantSize: 140
+  verifyIconSize: 30
+  ornamentHeight: 125
+  badgeHeight: 45
+  badgePadding: 8
+  badgeArc: 8
+  lineSpace: 11
+  drawSpace: 15
+  contentSpace: 12
+  smallCardHeight: 200
+  additionalCardHeight: 130

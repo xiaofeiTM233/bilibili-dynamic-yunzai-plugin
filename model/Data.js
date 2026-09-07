@@ -1,7 +1,7 @@
 /**
  * 订阅数据操作 —— 移植自 DynamicService.kt / BiliData.kt
  *
- * 联系人表示：g<群号>（群聊）/ f<QQ号>（好友），uid 为字符串。
+ * 联系人表示与 mirai 一致："-<群号>"（群聊）/ "<QQ号>"（好友），分组名为普通名称。
  */
 import { getData, saveData } from './Config.js'
 import { fuzzySearch } from './Utils.js'
@@ -12,16 +12,18 @@ export const logger = global.logger ?? console
 /* 联系人                                                               */
 /* ------------------------------------------------------------------ */
 
-/** e -> "g<群号>" / "f<QQ号>"（对应 Contact.delegate） */
+/** e -> "-<群号>" / "<QQ号>"（对应 Contact.delegate） */
 export function contactOf(e) {
-  return e.isGroup ? `g${e.group_id}` : `f${e.user_id}`
+  return e.isGroup ? `-${e.group_id}` : `${e.user_id}`
 }
 
-/** 解析联系人字符串 */
+/** 解析联系人字符串（兼容旧 g/f 前缀写法） */
 export function parseContact(contact) {
-  if (contact.startsWith('g')) return { type: 'group', id: contact.slice(1) }
-  if (contact.startsWith('f')) return { type: 'friend', id: contact.slice(1) }
-  return { type: 'group', id: contact }
+  const s = String(contact)
+  if (s.startsWith('-')) return { type: 'group', id: s.slice(1) }
+  if (s.startsWith('g')) return { type: 'group', id: s.slice(1) }
+  if (s.startsWith('f')) return { type: 'friend', id: s.slice(1) }
+  return { type: 'friend', id: s }
 }
 
 /** 推送目标文本（日志用） */
@@ -76,7 +78,9 @@ export function addSubscribe(uid, name, contact) {
   uid = String(uid)
   const all = data.dynamic[0]
   if (all) all.contacts = all.contacts.filter((c) => c !== contact)
-  if (!data.dynamic[uid]) data.dynamic[uid] = { name, color: null, contacts: [] }
+  if (!data.dynamic[uid]) {
+    data.dynamic[uid] = { name, color: null, last: 0, lastLive: 0, contacts: [], banList: {} }
+  }
   if (!isFollow(uid, contact)) data.dynamic[uid].contacts.push(contact)
   saveData()
 }
@@ -93,6 +97,17 @@ export function removeSubscribe(uid, contact) {
   return true
 }
 
+/** 从全部推送模板映射中移除某联系人（模板形状：模板名 -> 联系人列表） */
+export function removeTemplateContact(contact) {
+  const data = getData()
+  for (const key of ['dynamicPushTemplate', 'livePushTemplate', 'liveCloseTemplate']) {
+    for (const list of Object.values(data[key] ?? {})) {
+      const i = list.indexOf(contact)
+      if (i !== -1) list.splice(i, 1)
+    }
+  }
+}
+
 /** 删除某个目标的全部订阅（对应 removeAllSubscribe） */
 export function removeAllSubscribe(contact) {
   const data = getData()
@@ -105,9 +120,7 @@ export function removeAllSubscribe(contact) {
   }
   delete data.filter[contact]
   delete data.atAll[contact]
-  delete data.dynamicTemplate[contact]
-  delete data.liveTemplate[contact]
-  delete data.liveCloseTemplate[contact]
+  removeTemplateContact(contact)
   saveData()
 }
 
@@ -138,13 +151,13 @@ function groupData() {
   return data.group
 }
 
-/** 联系人参数解析："f123" / "g123" / 纯数字（默认为群） */
+/** 联系人参数解析："-123" / "g123" / "f123" / 纯数字（默认为群） */
 function parseContactArg(arg) {
   const s = String(arg).trim()
   if (!s) return null
-  if (/^f\d+$/.test(s)) return s
-  if (/^g\d+$/.test(s)) return s
-  if (/^\d+$/.test(s)) return `g${s}`
+  if (/^-?\d+$/.test(s)) return s
+  if (/^g\d+$/.test(s)) return `-${s.slice(1)}`
+  if (/^f\d+$/.test(s)) return s.slice(1)
   return null
 }
 
@@ -171,9 +184,7 @@ export function delGroup(name, operator) {
   }
   delete data.filter[name]
   delete data.atAll[name]
-  delete data.dynamicTemplate[name]
-  delete data.liveTemplate[name]
-  delete data.liveCloseTemplate[name]
+  removeTemplateContact(name)
   delete group[name]
   saveData()
   return '删除成功'
@@ -305,12 +316,12 @@ export function matchUser(target) {
 /* ------------------------------------------------------------------ */
 
 export const FILTER_TYPES = {
-  动态: 'dynamic',
-  转发动态: 'forward',
-  视频: 'video',
-  音乐: 'music',
-  专栏: 'article',
-  直播: 'live',
+  动态: 'DYNAMIC',
+  转发动态: 'FORWARD',
+  视频: 'VIDEO',
+  音乐: 'MUSIC',
+  专栏: 'ARTICLE',
+  直播: 'LIVE',
 }
 
 export const FILTER_TYPE_NAMES = Object.fromEntries(
@@ -318,16 +329,16 @@ export const FILTER_TYPE_NAMES = Object.fromEntries(
 )
 
 export const AT_ALL_TYPES = {
-  全部: 'all', all: 'all', a: 'all',
-  全部动态: 'dynamic', dynamic: 'dynamic', d: 'dynamic',
-  视频: 'video', video: 'video', v: 'video',
-  音乐: 'music', music: 'music', m: 'music',
-  专栏: 'article', article: 'article',
-  直播: 'live', live: 'live', l: 'live',
+  全部: 'ALL', all: 'ALL', a: 'ALL',
+  全部动态: 'DYNAMIC', dynamic: 'DYNAMIC', d: 'DYNAMIC',
+  视频: 'VIDEO', video: 'VIDEO', v: 'VIDEO',
+  音乐: 'MUSIC', music: 'MUSIC', m: 'MUSIC',
+  专栏: 'ARTICLE', article: 'ARTICLE',
+  直播: 'LIVE', live: 'LIVE', l: 'LIVE',
 }
 
 export const AT_ALL_NAMES = {
-  all: '全部', dynamic: '全部动态', video: '视频', music: '音乐', article: '专栏', live: '直播',
+  ALL: '全部', DYNAMIC: '全部动态', VIDEO: '视频', MUSIC: '音乐', ARTICLE: '专栏', LIVE: '直播',
 }
 
 /** 动态类型 -> 过滤器分类（对应 DynamicType.toFilterType） */
@@ -339,23 +350,23 @@ export function filterCategoryOf(type) {
     case 'DYNAMIC_TYPE_COMMON_VERTICAL':
     case 'DYNAMIC_TYPE_UNKNOWN':
     case 'DYNAMIC_TYPE_NONE':
-      return 'dynamic'
+      return 'DYNAMIC'
     case 'DYNAMIC_TYPE_FORWARD':
-      return 'forward'
+      return 'FORWARD'
     case 'DYNAMIC_TYPE_AV':
     case 'DYNAMIC_TYPE_UGC_SEASON':
     case 'DYNAMIC_TYPE_PGC':
     case 'DYNAMIC_TYPE_PGC_UNION':
-      return 'video'
+      return 'VIDEO'
     case 'DYNAMIC_TYPE_MUSIC':
-      return 'music'
+      return 'MUSIC'
     case 'DYNAMIC_TYPE_ARTICLE':
-      return 'article'
+      return 'ARTICLE'
     case 'DYNAMIC_TYPE_LIVE':
     case 'DYNAMIC_TYPE_LIVE_RCMD':
-      return 'live'
+      return 'LIVE'
     default:
-      return 'dynamic'
+      return 'DYNAMIC'
   }
 }
 
@@ -363,13 +374,13 @@ export function filterCategoryOf(type) {
 export function atAllCategoryOf(type) {
   switch (type) {
     case 'DYNAMIC_TYPE_AV':
-      return 'video'
+      return 'VIDEO'
     case 'DYNAMIC_TYPE_MUSIC':
-      return 'music'
+      return 'MUSIC'
     case 'DYNAMIC_TYPE_ARTICLE':
-      return 'article'
+      return 'ARTICLE'
     default:
-      return 'dynamic'
+      return 'DYNAMIC'
   }
 }
 
@@ -378,8 +389,8 @@ function ensureFilter(contact, uid) {
   if (!data.filter[contact]) data.filter[contact] = {}
   if (!data.filter[contact][uid]) {
     data.filter[contact][uid] = {
-      typeSelect: { mode: 'black', list: [] },
-      regularSelect: { mode: 'black', list: [] },
+      typeSelect: { mode: 'BLACK_LIST', list: [] },
+      regularSelect: { mode: 'BLACK_LIST', list: [] },
     }
   }
   return data.filter[contact][uid]
@@ -422,14 +433,14 @@ export function listFilter(uid, contact) {
   if (!filter) return '目标没有过滤器'
   let out = ''
   if (filter.typeSelect.list.length > 0) {
-    out += `动态类型过滤器: ${filter.typeSelect.mode === 'white' ? '白名单' : '黑名单'}\n`
+    out += `动态类型过滤器: ${filter.typeSelect.mode === 'WHITE_LIST' ? '白名单' : '黑名单'}\n`
     filter.typeSelect.list.forEach((t, i) => {
       out += `  t${i}: ${FILTER_TYPE_NAMES[t] ?? t}\n`
     })
     out += '\n'
   }
   if (filter.regularSelect.list.length > 0) {
-    out += `正则过滤器: ${filter.regularSelect.mode === 'white' ? '白名单' : '黑名单'}\n`
+    out += `正则过滤器: ${filter.regularSelect.mode === 'WHITE_LIST' ? '白名单' : '黑名单'}\n`
     filter.regularSelect.list.forEach((r, i) => {
       out += `  r${i}: ${r}\n`
     })
@@ -489,8 +500,8 @@ export function checkAtAll(contact, uid, type) {
   if (!atAll) return false
   const list = atAll[String(uid)] ?? atAll[0]
   if (!list || list.length === 0) return false
-  if (list.includes('all')) return true
-  if (atAllCategoryOf(type) === 'live' && list.includes('live')) return true
+  if (list.includes('ALL')) return true
+  if (atAllCategoryOf(type) === 'LIVE' && list.includes('LIVE')) return true
   return list.includes(atAllCategoryOf(type))
 }
 
@@ -520,18 +531,30 @@ export function subColor(uid) {
   return data.dynamic[String(uid)]?.color ?? data.bangumi[String(uid)]?.color ?? null
 }
 
+const TEMPLATE_KINDS = { d: 'dynamicPushTemplate', l: 'livePushTemplate', c: 'liveCloseTemplate' }
+
 export function setTemplate(kind, name, contact) {
+  const key = TEMPLATE_KINDS[kind]
+  if (!key) return '模板类型错误，请使用 d(动态) / l(直播) / c(下播)'
   const data = getData()
-  const key = kind === 'd' ? 'dynamicTemplate' : kind === 'l' ? 'liveTemplate' : 'liveCloseTemplate'
-  data[key][contact] = name
+  const map = data[key]
+  // 先把该联系人从其他模板中移除（每个联系人仅归属一个模板）
+  for (const list of Object.values(map)) {
+    const i = list.indexOf(contact)
+    if (i !== -1) list.splice(i, 1)
+  }
+  if (!map[name]) map[name] = []
+  if (!map[name].includes(contact)) map[name].push(contact)
   saveData()
   return '设置成功'
 }
 
 export function templateOf(kind, contact) {
-  const data = getData()
-  const key = kind === 'd' ? 'dynamicTemplate' : kind === 'l' ? 'liveTemplate' : 'liveCloseTemplate'
-  return data[key][contact] ?? null
+  const map = getData()[TEMPLATE_KINDS[kind]]
+  for (const [name, list] of Object.entries(map ?? {})) {
+    if (list.includes(contact)) return name
+  }
+  return null
 }
 
 /* ------------------------------------------------------------------ */

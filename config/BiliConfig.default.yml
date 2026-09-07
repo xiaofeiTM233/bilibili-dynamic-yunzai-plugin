@@ -1,0 +1,92 @@
+admin: 0
+enableConfig:
+  drawEnable: true
+  liveCloseNotifyEnable: true
+  showLoadingMessage: true
+accountConfig:
+  cookie: ""
+  autoFollow: true
+  followGroup: Bot关注
+checkConfig:
+  interval: 15
+  liveInterval: 20
+  lowSpeed: 0-0x2
+  timeout: 10
+pushConfig:
+  messageInterval: 100
+  pushInterval: 500
+  atAllPlus: PLUS_END
+imageConfig:
+  quality: 1000w
+  theme: v3
+  font: ""
+  defaultColor: "#d3edfa"
+  cardOrnament: FanCard
+  colorGenerator:
+    hueStep: 30
+    lockSB: true
+    saturation: 0.25
+    brightness: 1
+  badgeEnable:
+    left: true
+    right: false
+templateConfig:
+  defaultDynamicPush: OneMsg
+  defaultLivePush: OneMsg
+  defaultLiveClose: SimpleMsg
+  dynamicPush:
+    DrawOnly: "{draw}"
+    TextOnly: |-
+      {name}@{type}
+      {link}
+      {content}
+      {images}
+    OneMsg: |-
+      {draw}
+      {name}@{type}
+      {link}
+    TwoMsg: "{draw}\r{name}@{uid}@{type}
+
+      {time}
+
+      {link}"
+    ForwardMsg: "{draw}{>>}作者：{name}
+
+      UID：{uid}
+
+      时间：{time}
+
+      类型：{type}
+
+      链接：{links}\r{content}\r{images}{<<}"
+  livePush:
+    DrawOnly: "{draw}"
+    TextOnly: |-
+      {name}@直播
+      {link}
+      标题: {title}
+    OneMsg: |-
+      {draw}
+      {name}@直播
+      {link}
+    TwoMsg: "{draw}\r{name}@{uid}@直播
+
+      {title}
+
+      {time}
+
+      {link}"
+  liveClose:
+    SimpleMsg: |-
+      {name} 直播结束啦!
+      直播时长: {duration}
+    ComplexMsg: |-
+      {name} 直播结束啦!
+      标题: {title}
+      直播时长: {duration}
+  footer:
+    dynamicFooter: ""
+    liveFooter: ""
+    footerAlign: LEFT
+cacheConfig:
+  downloadOriginal: true

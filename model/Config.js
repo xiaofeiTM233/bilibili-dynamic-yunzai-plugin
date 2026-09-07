@@ -1,95 +1,145 @@
 /**
- * 配置与路径管理 —— 对应 BiliConfig.kt
+ * 配置与数据管理 —— 与 mirai 插件共用同一套配置文件，内存形状 = 文件形状
  *
- * 配置文件：<插件目录>/config/config.json（用户配置，可手动编辑）
- * 默认值：<插件目录>/config/default_config.json
- * 运行时数据：<云崽根目录>/data/bilibili-dynamic/（对应 BiliData.kt）
- *   - bili_data.json  订阅数据
- *   - cache/          图片缓存
- *   - font/           绘图字体
- * 插件独立运行（未安装在 plugins/ 下）时，运行时数据回退到 <插件目录>/data/
+ * 所有文件均位于 <云崽根目录>/data/bilibili-dynamic/（独立运行时为 <插件目录>/data/）：
+ *   - BiliConfig.yml   插件配置（对应 mirai BiliConfig.kt）
+ *   - BiliData.yml     订阅数据（对应 mirai BiliData.kt）
+ *   - ImageQuality.yml 图片分辨率
+ *   - ImageTheme.yml   图片主题
+ *
+ * 数据格式即 mirai 原格式，无任何转换层：
+ *   - 联系人字符串：群 "-<群号>" / 好友 "<QQ号>"；分组名为普通名称
+ *   - 过滤器/AtAll：BLACK_LIST / WHITE_LIST、DYNAMIC 等枚举名
+ *   - 推送模板：模板名 -> 联系人列表
+ * 可将 mirai 的原文件直接放入本目录使用，也可复制回 mirai 继续使用。
+ * 文件缺失时从插件自带的 config/*.default.yml 复制补齐，代码内无任何默认值表。
+ * 登录 cookie 优先取 BiliConfig.yml 的 accountConfig.cookie（mirai 登录写入处），
+ * BiliData.yml 中的扩展键 cookie/uid 优先（#bili登录 写入）。
  */
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { parse as yamlParse, stringify as yamlStringify } from 'yaml'
+import { QUALITY_PRESETS, THEME_PRESETS } from 'bilibili-dynamic-canvaskit'
 import { deepMerge, ensureDir } from './Utils.js'
 
 export const pluginRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-export const configDir = path.join(pluginRoot, 'config')
-
-/** 云崽根目录（plugins/<插件名>/model 的上两级） */
-const yunzaiRoot = path.resolve(pluginRoot, '../..')
-
-function resolveDataRoot() {
-  // 安装在云崽 plugins/ 目录下时，数据存入云崽的 data 文件夹
+/** 数据根目录：安装在云崽 plugins/ 下时为云崽 data/bilibili-dynamic，独立运行时为插件目录 data/ */
+const dataRoot = (() => {
+  const yunzaiRoot = path.resolve(pluginRoot, '../..')
   const underPlugins = path.basename(path.dirname(pluginRoot)) === 'plugins'
   const isYunzai = fs.existsSync(path.join(yunzaiRoot, 'lib/plugins/plugin.js'))
-  if (underPlugins || isYunzai) {
-    return path.join(yunzaiRoot, 'data/bilibili-dynamic')
-  }
-  // 独立运行（开发/测试）时回退到插件目录
-  return path.join(pluginRoot, 'data')
-}
+  return underPlugins || isYunzai ? path.join(yunzaiRoot, 'data/bilibili-dynamic') : path.join(pluginRoot, 'data')
+})()
 
-export const dataRoot = resolveDataRoot()
-export const dataDir = dataRoot
 export const cacheDir = path.join(dataRoot, 'cache')
 export const fontDir = path.join(dataRoot, 'font')
 
-export const defaultConfigPath = path.join(configDir, 'default_config.json')
-export const configPath = path.join(configDir, 'config.json')
-export const dataPath = path.join(dataDir, 'bili_data.json')
+export const configPath = path.join(dataRoot, 'BiliConfig.yml')
+export const qualityPath = path.join(dataRoot, 'ImageQuality.yml')
+export const themePath = path.join(dataRoot, 'ImageTheme.yml')
+export const dataPath = path.join(dataRoot, 'BiliData.yml')
 
-ensureDir(configDir)
 ensureDir(dataRoot)
 ensureDir(cacheDir)
 
-/**
- * 旧版本数据迁移：早期版本把数据/缓存/字体放在插件目录内，
- * 检测到旧位置数据且新位置为空时自动搬运。
- */
-function migrateLegacyData() {
-  const legacyData = path.join(pluginRoot, 'data/bili_data.json')
-  const legacyResources = path.join(pluginRoot, 'resources')
-  try {
-    if (fs.existsSync(legacyData) && !fs.existsSync(dataPath)) {
-      fs.copyFileSync(legacyData, dataPath)
-      global.logger?.mark?.('[bilibili-dynamic] 已迁移订阅数据到 ' + dataPath)
-    }
-    for (const [from, to] of [
-      [path.join(legacyResources, 'cache'), cacheDir],
-      [path.join(legacyResources, 'font'), fontDir],
-    ]) {
-      if (!fs.existsSync(from)) continue
-      ensureDir(to)
-      for (const name of fs.readdirSync(from)) {
-        const target = path.join(to, name)
-        if (!fs.existsSync(target)) fs.renameSync(path.join(from, name), target)
-      }
-    }
-  } catch (err) {
-    console.warn(`[bilibili-dynamic] 旧数据迁移失败: ${err.message}`)
-  }
+/* ------------------------------------------------------------------ */
+/* 默认文件：全部随插件附带（config/*.default.yml），缺失时复制补齐            */
+/* ------------------------------------------------------------------ */
+
+const configDir = path.join(pluginRoot, 'config')
+
+/** 文件不存在时复制插件附带的默认文件（对应 mirai 首启自动生成默认配置） */
+function ensureFile(file, defaultFile) {
+  if (!fs.existsSync(file)) fs.copyFileSync(defaultFile, file)
 }
-migrateLegacyData()
 
-let cached = null
+/* ------------------------------------------------------------------ */
+/* YAML 读写                                                            */
+/* ------------------------------------------------------------------ */
 
-function readJson(file, fallback) {
+function readYaml(file, fallback) {
   try {
-    if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf8'))
+    if (fs.existsSync(file)) {
+      const parsed = yamlParse(fs.readFileSync(file, 'utf8'))
+      if (parsed != null) return parsed
+    }
   } catch (err) {
     console.error(`[bilibili-dynamic] 解析 ${file} 失败: ${err.message}`)
   }
   return fallback
 }
 
-/** 读取配置（默认值 <- 用户配置），修改后可调用 reloadConfig */
+function writeYaml(file, obj) {
+  ensureDir(path.dirname(file))
+  fs.writeFileSync(file, yamlStringify(obj, { lineWidth: 0 }))
+}
+
+/* ------------------------------------------------------------------ */
+/* 配置读取（getConfig 返回兼容视图，字段与旧版扁平键一致）                   */
+/* ------------------------------------------------------------------ */
+
+let cached = null
+
+function buildView(cfg, qualityDoc, themeDoc) {
+  const e = cfg.enableConfig ?? {}
+  const a = cfg.accountConfig ?? {}
+  const c = cfg.checkConfig ?? {}
+  const p = cfg.pushConfig ?? {}
+  const i = cfg.imageConfig ?? {}
+  const t = cfg.templateConfig ?? {}
+  // ImageQuality.yml / ImageTheme.yml 的 customOverload 开启后覆盖 imageConfig 对应项
+  const quality = qualityDoc?.customOverload && qualityDoc.customQuality ? qualityDoc.customQuality : i.quality
+  const theme = themeDoc?.customOverload && themeDoc.customTheme ? themeDoc.customTheme : i.theme
+  return {
+    root: cfg,
+    admin: cfg.admin,
+    timeout: c.timeout,
+    interval: c.interval,
+    liveInterval: c.liveInterval,
+    lowSpeed: c.lowSpeed,
+    drawEnable: e.drawEnable,
+    liveCloseNotify: e.liveCloseNotifyEnable,
+    showLoadingMessage: e.showLoadingMessage,
+    autoFollow: a.autoFollow,
+    followGroup: a.followGroup,
+    quality,
+    theme,
+    font: i.font,
+    defaultColor: i.defaultColor,
+    cardOrnament: i.cardOrnament,
+    colorGenerator: i.colorGenerator,
+    badgeEnable: i.badgeEnable,
+    downloadOriginal: cfg.cacheConfig?.downloadOriginal,
+    cacheClearDays: cfg.cacheConfig?.expires?.DRAW ?? 7,
+    pushInterval: p.pushInterval,
+    messageInterval: p.messageInterval,
+    atAllPlus: p.atAllPlus,
+    template: {
+      dynamic: t.defaultDynamicPush,
+      live: t.defaultLivePush,
+      liveClose: t.defaultLiveClose,
+    },
+    dynamicTemplates: t.dynamicPush ?? {},
+    liveTemplates: t.livePush ?? {},
+    liveCloseTemplates: t.liveClose ?? {},
+    footer: t.footer ?? {},
+    /** 停用的链接解析功能仍透传 mirai 的配置键，供日后恢复使用 */
+    linkResolve: cfg.linkResolveConfig ?? {},
+  }
+}
+
+/** 读取配置视图（BiliConfig.yml + ImageQuality.yml + ImageTheme.yml），修改后可调用 reloadConfig */
 export function getConfig() {
   if (!cached) {
-    const defaults = readJson(defaultConfigPath, {})
-    cached = deepMerge(defaults, readJson(configPath, {}))
+    ensureFile(configPath, path.join(configDir, 'BiliConfig.default.yml'))
+    ensureFile(qualityPath, path.join(configDir, 'ImageQuality.default.yml'))
+    ensureFile(themePath, path.join(configDir, 'ImageTheme.default.yml'))
+    const cfg = readYaml(configPath, null)
+    const qualityDoc = readYaml(qualityPath, null)
+    const themeDoc = readYaml(themePath, null)
+    cached = buildView(cfg, qualityDoc, themeDoc)
   }
   return cached
 }
@@ -99,62 +149,39 @@ export function reloadConfig() {
   return getConfig()
 }
 
-/** 保存用户配置（完整写入当前合并结果） */
-export function saveConfig(cfg = getConfig()) {
-  fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2))
-}
-
 /* ------------------------------------------------------------------ */
-/* 订阅数据（对应 BiliData.kt）                                          */
+/* 订阅数据（BiliData.yml，内存形状 = mirai 文件形状，无转换层）               */
 /* ------------------------------------------------------------------ */
-
-export function defaultData() {
-  return {
-    /** B 站账号 UID（登录后写入） */
-    uid: 0,
-    /** 登录 cookie："SESSDATA=xxx; bili_jct=xxx; " */
-    cookie: '',
-    /** 自动关注分组 tagid（对应 BiliBiliDynamic.tagid） */
-    tagid: 0,
-    /**
-     * 订阅信息，key: uid（"0" 为全体目标聚合，对应 SubData）
-     * contacts 元素为 "g<群号>" / "f<QQ号>"
-     */
-    dynamic: {
-      0: { name: 'ALL', color: null, contacts: [] },
-    },
-    /** 番剧订阅，key: ssid */
-    bangumi: {},
-    /** 动态过滤，key: contact -> uid -> { typeSelect: {mode, list}, regularSelect: {mode, list} } */
-    filter: {},
-    /** At全体，key: contact -> uid -> 类型数组 [all/dynamic/video/music/article/live] */
-    atAll: {},
-    /** 推送分组，key: 分组名 -> { name, creator, admin: [], contacts: ["g<群号>"/"f<QQ号>"] } */
-    group: {},
-    /** 每目标推送模板选择，key: contact -> 模板名 */
-    dynamicTemplate: {},
-    liveTemplate: {},
-    liveCloseTemplate: {},
-  }
-}
 
 let saveTimer = null
 
 export function getData() {
   if (!globalThis.__biliData) {
-    const loaded = readJson(dataPath, null)
-    globalThis.__biliData = loaded ? deepMerge(defaultData(), loaded) : defaultData()
+    ensureFile(configPath, path.join(configDir, 'BiliConfig.default.yml'))
+    ensureFile(dataPath, path.join(configDir, 'BiliData.default.yml'))
+    // deepMerge 以默认文件为骨架补齐新键，纯函数不改基线
+    const data = deepMerge(readYaml(path.join(configDir, 'BiliData.default.yml'), {}), readYaml(dataPath, {}) ?? {})
+    // cookie 兜底：BiliData 未登录时取 BiliConfig.accountConfig.cookie（mirai 登录写入处）
+    if (!data.cookie) {
+      const cookie = getConfig().root?.accountConfig?.cookie
+      if (cookie) {
+        data.cookie = cookie
+        const m = /DedeUserID=(\d+)/.exec(cookie)
+        if (m) data.uid = Number(m[1])
+      }
+    }
+    globalThis.__biliData = data
   }
   return globalThis.__biliData
 }
 
-/** 防抖落盘（对应 AutoSavePluginData 的自动保存） */
+/** 防抖落盘（对应 AutoSavePluginData 的自动保存），原样写回 BiliData.yml */
 export function saveData() {
   if (saveTimer) return
   saveTimer = setTimeout(() => {
     saveTimer = null
     try {
-      fs.writeFileSync(dataPath, JSON.stringify(getData(), null, 2))
+      writeYaml(dataPath, getData())
     } catch (err) {
       console.error(`[bilibili-dynamic] 保存订阅数据失败: ${err.message}`)
     }
@@ -166,5 +193,5 @@ export function saveDataNow() {
     clearTimeout(saveTimer)
     saveTimer = null
   }
-  fs.writeFileSync(dataPath, JSON.stringify(getData(), null, 2))
+  fs.writeFileSync(dataPath, yamlStringify(getData(), { lineWidth: 0 }))
 }

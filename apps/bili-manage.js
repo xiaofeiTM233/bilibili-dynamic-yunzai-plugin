@@ -148,7 +148,7 @@ export class BiliManage extends plugin {
     if (!canManage(e)) return e.reply('仅群管理员或主人可以设置过滤器')
     const args = splitArgs(e.msg.replace(/^#bili\s*(过滤模式|fm)\s*/, ''))
     if (args.length < 2) return e.reply('用法：#bili过滤模式 <t/r> <w/b> [UID]\nt=类型过滤器 r=正则过滤器 w=白名单 b=黑名单')
-    const mode = args[1] === 'w' || args[1] === '白' ? 'white' : args[1] === 'b' || args[1] === '黑' ? 'black' : null
+    const mode = args[1] === 'w' || args[1] === '白' ? 'WHITE_LIST' : args[1] === 'b' || args[1] === '黑' ? 'BLACK_LIST' : null
     if (!mode) return e.reply('过滤器模式请使用 w(白名单) 或 b(黑名单)')
     const uid = parseUidArg(args[2] ?? '')
     if (uid === null) return e.reply('未匹配到用户哦')

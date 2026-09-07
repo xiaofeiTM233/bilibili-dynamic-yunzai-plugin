@@ -329,8 +329,8 @@ function applyFilter(contactList, mid, category, content) {
     const typeSelect = dynamicFilter.typeSelect
     if (typeSelect?.list?.length > 0) {
       const hit = typeSelect.list.includes(category)
-      if (typeSelect.mode === 'white' && !hit) return false
-      if (typeSelect.mode !== 'white' && hit) return false
+      if (typeSelect.mode === 'WHITE_LIST' && !hit) return false
+      if (typeSelect.mode !== 'WHITE_LIST' && hit) return false
     }
 
     const regularSelect = dynamicFilter.regularSelect
@@ -342,8 +342,8 @@ function applyFilter(contactList, mid, category, content) {
         } catch {
           continue
         }
-        if (regularSelect.mode === 'white' && !matched) return false
-        if (regularSelect.mode !== 'white' && matched) return false
+        if (regularSelect.mode === 'WHITE_LIST' && !matched) return false
+        if (regularSelect.mode !== 'WHITE_LIST' && matched) return false
       }
     }
     return true

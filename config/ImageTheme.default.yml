@@ -1,0 +1,38 @@
+help: https://github.com/Colter23/bilibili-dynamic-mirai-plugin#ImageTheme.yml
+customOverload: false
+customTheme:
+  cardBgColorHex: "#B4FFFFFF"
+  cardOutlineColorHex: "#FFFFFF"
+  faceOutlineColorHex: "#A0FFFFFF"
+  drawOutlineColorHex: "#FFFFFF"
+  nameColorHex: "#FB7299"
+  titleColorHex: "#313131"
+  subTitleColorHex: "#9C9C9C"
+  descColorHex: "#666666"
+  contentColorHex: "#222222"
+  linkColorHex: "#178BCF"
+  footerColorHex: "#9C9C9C"
+  cardShadow:
+    shadowColorHex: "#46000000"
+    offsetX: 6
+    offsetY: 6
+    blur: 25
+    spread: 0
+  smallCardShadow:
+    shadowColorHex: "#1E000000"
+    offsetX: 5
+    offsetY: 5
+    blur: 15
+    spread: 0
+  mainLeftBadge:
+    fontColorHex: "#00CBFF"
+    bgColorHex: "#B4FFFFFF"
+  mainRightBadge:
+    fontColorHex: "#FFFFFF"
+    bgColorHex: "#48C7F0"
+  subLeftBadge:
+    fontColorHex: "#FFFFFF"
+    bgColorHex: "#FB7299"
+  subRightBadge:
+    fontColorHex: "#FFFFFF"
+    bgColorHex: "#48C7F0"

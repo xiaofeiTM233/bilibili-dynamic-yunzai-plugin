@@ -1,0 +1,21 @@
+dataVersion: 0
+uid: 0
+cookie: ""
+tagid: 0
+buvid3: ""
+buvid4: ""
+dynamic:
+  "0":
+    name: ALL
+    color: null
+    last: 0
+    lastLive: 0
+    contacts: []
+    banList: {}
+bangumi: {}
+filter: {}
+atAll: {}
+dynamicPushTemplate: {}
+livePushTemplate: {}
+liveCloseTemplate: {}
+group: {}
