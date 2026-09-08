@@ -20,6 +20,7 @@
     "@resvg/resvg-js": "^2.6.2",
     "bilibili-dynamic-canvaskit": "^0.1.0",
     "canvaskit-wasm": "^0.42.0",
+    "dayjs": "^1.11.23",
     "qrcode": "^1.5.4",
     "yaml": "^2.2.2"
   },

@@ -3,7 +3,7 @@
  */
 import crypto from 'node:crypto'
 import { getConfig, getData, saveData } from './Config.js'
-import { md5 } from './Utils.js'
+import { md5, nowSec, today } from './Utils.js'
 
 const logger = global.logger ?? console
 
@@ -60,7 +60,7 @@ function cookieString() {
   const parts = []
   if (data.cookie) parts.push(data.cookie.replace(/;\s*$/, '; '))
   if (data.uid) parts.push(`DedeUserID=${data.uid}`)
-  parts.push(`buvid3=${data.buvid3}`, `buvid4=${data.buvid4}`, `b_nut=${Math.floor(Date.now() / 1000)}`)
+  parts.push(`buvid3=${data.buvid3}`, `buvid4=${data.buvid4}`, `b_nut=${nowSec()}`)
   return parts.join(' ')
 }
 
@@ -182,7 +182,7 @@ function splitUrl(url) {
 }
 
 async function getMixinKey() {
-  const day = new Date().toDateString()
+  const day = today()
   if (wbiCache && wbiCache.day === day) return wbiCache.mixinKey
   const data = await getDataResult(Api.USER_NAV)
   const img = data.wbi_img?.img_url
@@ -200,7 +200,7 @@ async function getMixinKey() {
 /** WBI 签名 GET */
 async function getWithWbi(url, params) {
   const mixinKey = await getMixinKey()
-  const wts = Math.floor(Date.now() / 1000)
+  const wts = nowSec()
   const all = { ...params, wts }
   const sorted = Object.keys(all)
     .sort()

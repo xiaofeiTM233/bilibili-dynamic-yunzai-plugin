@@ -4,27 +4,33 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
+import dayjs from 'dayjs'
 
 export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-export function pad2(n) {
-  return String(n).padStart(2, '0')
+const pad2 = (n) => String(n).padStart(2, '0')
+
+/** Java 日期格式 -> dayjs 格式（yyyy->YYYY、dd->DD，其余一致） */
+function toDayjsFormat(template) {
+  return template.replace(/yyyy/g, 'YYYY').replace(/dd/g, 'DD')
 }
 
 /** 秒级时间戳 -> "yyyy年MM月dd日 HH:mm:ss"（对应 Long.formatTime） */
 export function formatTime(sec, template = 'yyyy年MM月dd日 HH:mm:ss') {
-  if (!sec) sec = Math.floor(Date.now() / 1000)
-  const d = new Date(sec * 1000)
-  const map = {
-    yyyy: d.getFullYear(),
-    MM: pad2(d.getMonth() + 1),
-    dd: pad2(d.getDate()),
-    HH: pad2(d.getHours()),
-    mm: pad2(d.getMinutes()),
-    ss: pad2(d.getSeconds()),
-  }
-  return template.replace(/yyyy|MM|dd|HH|mm|ss/g, (k) => map[k])
+  return (sec ? dayjs(sec * 1000) : dayjs()).format(toDayjsFormat(template))
 }
+
+/** 当前秒级时间戳（对应 Instant.now().epochSecond） */
+export const nowSec = () => dayjs().unix()
+
+/** 当天日期 yyyy-MM-dd */
+export const today = () => dayjs().format('YYYY-MM-DD')
+
+/** 当前小时 0-23 */
+export const hourOf = () => dayjs().hour()
+
+/** days 天前的毫秒时间戳 */
+export const daysAgoMs = (days) => dayjs().subtract(days, 'day').valueOf()
 
 /** 秒 -> "x天 x小时 x分钟 x秒"（对应 Long.formatDuration） */
 export function formatDuration(sec, isText = true) {

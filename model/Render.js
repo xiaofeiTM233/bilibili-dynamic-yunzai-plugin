@@ -10,7 +10,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { pluginRoot, cacheDir, fontDir, getConfig } from './Config.js'
-import { ensureDir, formatTime, walkFiles } from './Utils.js'
+import { ensureDir, formatTime, walkFiles, daysAgoMs } from './Utils.js'
 
 const logger = global.logger ?? console
 
@@ -521,7 +521,7 @@ export async function renderLoginQrcode(url) {
 /** 清理超过 days 天未访问的缓存图片，days=0 时跳过 */
 export function clearCache(days) {
   if (!days || days <= 0) return 0
-  const expire = Date.now() - days * 86400_000
+  const expire = daysAgoMs(days)
   let count = 0
   walkFiles(cacheDir, (file) => {
     try {

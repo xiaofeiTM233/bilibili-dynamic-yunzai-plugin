@@ -11,7 +11,7 @@ import * as Data from './Data.js'
 import * as Api from './Api.js'
 import * as Dynamic from './Dynamic.js'
 import { renderDynamic, renderLive, clearCache, resetRuntime } from './Render.js'
-import { formatTime, formatDuration, sleep } from './Utils.js'
+import { formatTime, formatDuration, sleep, nowSec, today, hourOf } from './Utils.js'
 
 const logger = global.logger ?? console
 
@@ -23,8 +23,8 @@ const HISTORY_CAPACITY = 200
 const historyDynamic = []
 let lastIndex = 0
 
-let lastDynamic = Math.floor(Date.now() / 1000)
-let lastLive = Math.floor(Date.now() / 1000)
+let lastDynamic = nowSec()
+let lastLive = nowSec()
 const liveUsers = new Map() // uid -> liveTime
 
 const queue = []
@@ -71,7 +71,7 @@ function calcInterval(base) {
   if (!m) return base
   const [, from, to, multiple] = m
   if (Number(from) === Number(to)) return base
-  const hour = new Date().getHours()
+  const hour = hourOf()
   const inRange =
     Number(from) > Number(to)
       ? hour >= Number(from) || hour <= Number(to)
@@ -210,7 +210,7 @@ export async function liveCloseCheck() {
   const statusMap = await Api.getLiveStatus([...liveUsers.keys()])
   if (!statusMap) return
 
-  const now = Math.floor(Date.now() / 1000)
+  const now = nowSec()
   for (const info of Object.values(statusMap)) {
     if (info.live_status === 1) continue
     const liveTime = liveUsers.get(info.uid)
@@ -670,10 +670,10 @@ async function sendMessage(message) {
 
 async function cacheLoop() {
   while (running) {
-    const today = new Date().toDateString()
-    const hour = new Date().getHours()
-    if (lastCacheClearDay !== today && hour === 4) {
-      lastCacheClearDay = today
+    const day = today()
+    const hour = hourOf()
+    if (lastCacheClearDay !== day && hour === 4) {
+      lastCacheClearDay = day
       try {
         clearCache(getConfig().cacheClearDays ?? 7)
         await resetRuntime()

@@ -150,7 +150,7 @@ export async function drawGeneral(type, id) {
       return renderSearchCard({
         id,
         tag: '直播',
-        time: formatTime(Math.floor(Date.now() / 1000)),
+        time: formatTime(),
         author: Dynamic.plainAuthor({
           mid: user?.mid ?? room.uid ?? 0,
           name: user?.name ?? '',
@@ -175,7 +175,7 @@ export async function drawGeneral(type, id) {
       return renderSearchCard({
         id,
         tag: '用户',
-        time: formatTime(Math.floor(Date.now() / 1000)),
+        time: formatTime(),
         author: Dynamic.plainAuthor({
           mid: user.mid ?? Number(id),
           name: user.name ?? '',
@@ -200,7 +200,7 @@ export async function drawGeneral(type, id) {
       return renderSearchCard({
         id,
         tag: '番剧',
-        time: formatTime(Math.floor(Date.now() / 1000)),
+        time: formatTime(),
         author: Dynamic.plainAuthor(major.author ?? { mid: 0, name: major.pgc?.title ?? '', face: major.pgc?.cover ?? null }),
         major,
         link: `https://www.bilibili.com/bangumi/play/${id}`,

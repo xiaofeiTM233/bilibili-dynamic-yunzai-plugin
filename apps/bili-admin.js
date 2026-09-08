@@ -74,7 +74,7 @@ export class BiliAdmin extends plugin {
       const { buffer } = await renderSearchCard({
         id: room.room_id,
         tag: '直播',
-        time: formatTime(Math.floor(Date.now() / 1000)),
+        time: formatTime(),
         author: Dynamic.plainAuthor({
           mid: user?.mid ?? room.uid,
           name: user?.name ?? room.uname ?? '',
