@@ -67,12 +67,12 @@ export class BiliSubscribe extends plugin {
       rule: [
         { reg: '^#bili\\s*(帮助|help|菜单|menu|h)$', fnc: 'help' },
         { reg: '^#bili\\s*(删除全部订阅|delAll)\\s*(\\d*)$', fnc: 'removeAll' },
-        { reg: '^#bili\\s*(订阅|添加|add|follow)\\s*(.*)$', fnc: 'subscribe' },
-        { reg: '^#bili\\s*(取订|删除订阅|取消订阅|del|unfollow)\\s*(.*)$', fnc: 'unsubscribe' },
         { reg: '^#bili\\s*(订阅列表|列表|list)\\s*(\\d*)$', fnc: 'list' },
         { reg: '^#bili\\s*(全部订阅列表|全部订阅|订阅总数|listAll|la)$', fnc: 'listAll', permission: 'master' },
-        { reg: '^#bili\\s*(用户列表|谁订阅了|listUser|lu)\\s*(.*)$', fnc: 'listUser', permission: 'master' },
         { reg: '^#bili\\s*(追番|订阅番剧)\\s*(ss|md|ep)?(\\d+)\\s*(\\d*)$', fnc: 'bangumiSubscribe' },
+        { reg: '^#bili\\s*(订阅|添加|add|follow)\\s*(.*)$', fnc: 'subscribe' },
+        { reg: '^#bili\\s*(取订|删除订阅|取消订阅|del|unfollow)\\s*(.*)$', fnc: 'unsubscribe' },
+        { reg: '^#bili\\s*(用户列表|谁订阅了|listUser|lu)\\s*(.*)$', fnc: 'listUser', permission: 'master' },
         { reg: '^#bili\\s*(弃番|取消追番)\\s*(ss|md|ep)?(\\d+)\\s*(\\d*)$', fnc: 'bangumiUnsubscribe' },
       ],
     })

@@ -23,12 +23,11 @@ export class BiliManage extends plugin {
       priority: 500,
       rule: [
         { reg: '^#bili\\s*(颜色|主题色|color)\\s*(.*)$', fnc: 'color' },
-        // 模板列表需在模板之前匹配，避免 tl 被当作模板参数
         { reg: '^#bili\\s*(模板列表|模板效果|tl)\\s*(.*)$', fnc: 'templateList' },
         { reg: '^#bili\\s*(模板|推送模板|t)\\s*(.*)$', fnc: 'template' },
+        { reg: '^#bili\\s*(at全体列表|atall列表|laa)\\s*(.*)$', fnc: 'listAtAll' },
         { reg: '^#bili\\s*(at全体|atall|aa)\\s*(.*)$', fnc: 'atAll' },
         { reg: '^#bili\\s*(取消at全体|delAtall|daa)\\s*(.*)$', fnc: 'delAtAll' },
-        { reg: '^#bili\\s*(at全体列表|atall列表|laa)\\s*(.*)$', fnc: 'listAtAll' },
         { reg: '^#bili\\s*(类型过滤|ft)\\s*(.*)$', fnc: 'filterType' },
         { reg: '^#bili\\s*(正则过滤|fr)\\s*([\\s\\S]+)$', fnc: 'filterReg' },
         { reg: '^#bili\\s*(过滤模式|fm)\\s*(.*)$', fnc: 'filterMode' },

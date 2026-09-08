@@ -21,12 +21,12 @@ export class BiliQuery extends plugin {
       event: 'message',
       priority: 500,
       rule: [
-        { reg: '^#bili(登录|login)$', fnc: 'login', permission: 'master' },
-        { reg: '^#bili(动态|最新动态)\\s*(.*)$', fnc: 'queryDynamic' },
-        { reg: '^#bili(视频|最新视频)\\s*(.*)$', fnc: 'queryVideo' },
-        { reg: '^#bili(动态详情|搜动态)\\s*(\\d{5,})$', fnc: 'queryDynamicDetail' },
-        { reg: '^#bili(查找用户|搜索用户)\\s+(.+)$', fnc: 'searchUser' },
-        { reg: '^#bili状态$', fnc: 'status', permission: 'master' },
+        { reg: '^#bili\\s*(登录|login)$', fnc: 'login', permission: 'master' },
+        { reg: '^#bili\\s*(动态详情|搜动态|search|s)\\s*(\\d{5,})$', fnc: 'queryDynamicDetail' },
+        { reg: '^#bili\\s*(动态|最新动态)(?!详情)\\s*(.*)$', fnc: 'queryDynamic' },
+        { reg: '^#bili\\s*(视频|最新视频)\\s*(.*)$', fnc: 'queryVideo' },
+        { reg: '^#bili\\s*(查找用户|搜索用户)\\s+(.+)$', fnc: 'searchUser' },
+        { reg: '^#bili\\s*状态$', fnc: 'status', permission: 'master' },
       ],
     })
     // 启动推送任务（插件加载时执行一次）
@@ -81,7 +81,7 @@ export class BiliQuery extends plugin {
 
   /** 获取用户最新动态（对应 /bili new） */
   async queryDynamic(e) {
-    const args = splitArgs(e.msg.replace(/^#bili(动态|最新动态)\s*/, ''))
+    const args = splitArgs(e.msg.replace(/^#bili\s*(动态|最新动态)\s*/, ''))
     if (!args[0]) return e.reply('用法：#bili动态 <UID/用户名> [数量]')
     const matched = matchUid(args[0])
     if (matched === null) return e.reply('未匹配到用户哦，可先使用 #bili查找用户 <关键词> 搜索')
@@ -112,7 +112,7 @@ export class BiliQuery extends plugin {
 
   /** 获取用户最新视频（对应 /bili video） */
   async queryVideo(e) {
-    const args = splitArgs(e.msg.replace(/^#bili(视频|最新视频)\s*/, ''))
+    const args = splitArgs(e.msg.replace(/^#bili\s*(视频|最新视频)\s*/, ''))
     if (!args[0]) return e.reply('用法：#bili视频 <UID/用户名>')
     const matched = matchUid(args[0])
     if (matched === null) return e.reply('未匹配到用户哦，可先使用 #bili查找用户 <关键词> 搜索')
