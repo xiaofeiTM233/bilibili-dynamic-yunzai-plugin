@@ -272,6 +272,24 @@ async function buildDynamicMessage(item) {
   }
 }
 
+/**
+ * 命令直接请求动态详情时使用
+ * 与推送走同一套模板，因此发出来是图文
+ * @returns 分段数组，外层为多条消息
+ */
+export async function renderDirectDynamic(item, contact) {
+  const cfg = getConfig()
+  const message = await buildDynamicMessage(item)
+  message.contact = contact
+
+  const name = Data.templateOf('d', contact) ?? cfg.template?.dynamic ?? 'OneMsg'
+  const template = cfg.dynamicTemplates?.[name]
+  if (!template) return [[global.segment.image(message.draw.buffer)]]
+
+  const messages = buildMessages(message, template, [contact])
+  return messages.length > 0 ? messages : [[global.segment.image(message.draw.buffer)]]
+}
+
 async function buildLiveMessage(room) {
   const cfg = getConfig()
   const color = Data.subColor(room.uid)

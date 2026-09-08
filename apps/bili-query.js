@@ -6,8 +6,8 @@ import { getData } from '../model/Config.js'
 import * as Data from '../model/Data.js'
 import * as Api from '../model/Api.js'
 import * as Dynamic from '../model/Dynamic.js'
-import { renderDynamic, renderLoginQrcode, renderSearchCard } from '../model/Render.js'
-import { startPush, stats, queueLength } from '../model/Push.js'
+import { renderLoginQrcode, renderSearchCard } from '../model/Render.js'
+import { startPush, stats, queueLength, renderDirectDynamic } from '../model/Push.js'
 import { matchUid, replyError, splitArgs } from '../model/helpers.js'
 import { sleep } from '../model/Utils.js'
 
@@ -96,9 +96,9 @@ export class BiliQuery extends plugin {
 
       for (const item of items) {
         try {
-          Dynamic.convertArticle(item)
-          const { buffer } = await renderDynamic(item)
-          e.reply([global.segment.image(buffer)])
+          for (const segments of await renderDirectDynamic(item, Data.contactOf(e))) {
+            e.reply(segments)
+          }
         } catch (err) {
           logger.warn(`[bilibili-dynamic] 绘制动态失败: ${err.message}`)
           e.reply(`动态 ${Dynamic.didOf(item)} 绘制失败: ${err.message}`)
@@ -164,9 +164,9 @@ export class BiliQuery extends plugin {
       e.reply('加载中...', true)
       const item = await Api.getDynamicDetail(did)
       if (!item) return e.reply('没有查询到该动态')
-      Dynamic.convertArticle(item)
-      const { buffer } = await renderDynamic(item)
-      e.reply([global.segment.image(buffer)])
+      for (const segments of await renderDirectDynamic(item, Data.contactOf(e))) {
+        e.reply(segments)
+      }
     } catch (err) {
       replyError(e, err)
     }

@@ -8,7 +8,7 @@ import path from 'node:path'
 export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export function pad2(n) {
-  return n >= 1 && n <= 9 ? `0${n}` : String(n)
+  return String(n).padStart(2, '0')
 }
 
 /** 秒级时间戳 -> "yyyy年MM月dd日 HH:mm:ss"（对应 Long.formatTime） */
