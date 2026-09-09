@@ -32,6 +32,14 @@ export const hourOf = () => dayjs().hour()
 /** days 天前的毫秒时间戳 */
 export const daysAgoMs = (days) => dayjs().subtract(days, 'day').valueOf()
 
+/** 任意时间值 -> 秒级时间戳；无法解析返回 0（直播接口可能给秒级时间戳，也可能给 "yyyy-MM-dd HH:mm:ss"） */
+export function toSec(value) {
+  if (value == null || value === '') return 0
+  if (typeof value === 'number') return Number.isFinite(value) ? Math.floor(value) : 0
+  const d = dayjs(value)
+  return d.isValid() ? d.unix() : 0
+}
+
 /** 秒 -> "x天 x小时 x分钟 x秒"（对应 Long.formatDuration） */
 export function formatDuration(sec, isText = true) {
   const day = Math.floor(sec / 86400)

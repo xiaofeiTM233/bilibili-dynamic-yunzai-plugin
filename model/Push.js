@@ -11,7 +11,7 @@ import * as Data from './Data.js'
 import * as Api from './Api.js'
 import * as Dynamic from './Dynamic.js'
 import { renderDynamic, renderLive, clearCache, resetRuntime } from './Render.js'
-import { formatTime, formatDuration, sleep, nowSec, today, hourOf } from './Utils.js'
+import { formatTime, formatDuration, sleep, nowSec, today, hourOf, toSec } from './Utils.js'
 
 const logger = global.logger ?? console
 
@@ -162,34 +162,121 @@ async function liveLoop() {
   }
 }
 
+/**
+ * 直播检测
+ *
+ * 数据来源取并集（关注列表接口要求已关注且只取第一页 20 条，容易被漏掉）：
+ *  1. GetWebList            关注列表里正在直播的房间（mirai 原逻辑）
+ *  2. get_status_info_by_uids  按订阅 UID 主动查直播状态，无关注关系依赖、无分页
+ *
+ * 判定新开播用「上一轮未在播 -> 本轮在播（或换了房间号）」的快照比对，
+ * 不再依赖 live_time 字段（首轮只记基线不推送，与 mirai lastLive=启动时刻 行为一致）
+ */
+let liveSnapshot = null // Map<uid, roomId>，上一轮在播快照；null = 尚未初始化
+
 export async function liveCheck() {
   const data = getData()
   if (!data.cookie) return
   if (Data.allContacts().length === 0) return
 
-  const liveList = await Api.getLiveList()
-  if (!liveList?.rooms) return
+  const following = new Set(Data.subscribedUids().map(String))
+  if (following.size === 0) return
   stats.liveChecks++
 
-  const following = new Set(Data.subscribedUids().map(String))
-  const lives = liveList.rooms
-    .filter((room) => room.live_time > lastLive)
-    .filter((room) => following.has(String(room.uid)))
-    .sort((a, b) => a.live_time - b.live_time)
+  const rooms = await collectLiveRooms(following)
 
+  if (liveSnapshot === null) {
+    liveSnapshot = new Map([...rooms].map(([uid, room]) => [uid, room.rid]))
+    logger.info(`[bilibili-dynamic] 直播检测就绪：订阅 ${following.size} 个，当前在播 ${rooms.size} 个，后续开播将推送`)
+    return
+  }
+
+  const lives = [...rooms.values()].filter((room) => liveSnapshot.get(room.uid) !== room.rid)
+  liveSnapshot = new Map([...rooms].map(([uid, room]) => [uid, room.rid]))
+
+  logLiveScan(rooms, following)
   if (lives.length === 0) return
-  lastLive = lives[lives.length - 1].live_time
+  logger.info(`[bilibili-dynamic] 检测到 ${lives.length} 个开播，准备推送`)
+  lastLive = nowSec()
 
   for (const room of lives) {
     try {
-      const message = await buildLiveMessage(room)
-      queue.push(message)
+      queue.push(await buildLiveMessage(room))
       processQueue()
-      if (getConfig().liveCloseNotify) liveUsers.set(room.uid, room.live_time)
+      if (getConfig().liveCloseNotify) liveUsers.set(room.uid, room.liveTime)
     } catch (err) {
       logger.error(`[bilibili-dynamic] 构建直播消息失败 ${room.uid}: ${err.message}`)
     }
   }
+}
+
+/** 收集当前在播的房间：关注列表 + 订阅补查 */
+async function collectLiveRooms(following) {
+  const rooms = new Map() // uid -> 归一化房间
+
+  const liveList = await Api.getLiveList().catch((err) => {
+    logger.warn(`[bilibili-dynamic] 直播列表接口失败: ${err.message}`)
+    return null
+  })
+  if (Array.isArray(liveList?.rooms)) {
+    for (const room of liveList.rooms) {
+      const uid = String(room.uid)
+      if (following.has(uid)) rooms.set(uid, normalizeRoom(room))
+    }
+  }
+
+  // 订阅了但没出现在关注列表里的，主动查状态（绕开"未关注"和"只取第一页"两个坑）
+  const missing = [...following].filter((uid) => !rooms.has(uid))
+  for (let i = 0; i < missing.length; i += 30) {
+    const statusMap = await Api.getLiveStatus(missing.slice(i, i + 30)).catch((err) => {
+      logger.warn(`[bilibili-dynamic] 直播状态查询失败: ${err.message}`)
+      return null
+    })
+    for (const info of Object.values(statusMap ?? {})) {
+      if (info?.live_status !== 1) continue
+      const uid = String(info.uid)
+      if (following.has(uid)) rooms.set(uid, normalizeRoom(info))
+    }
+  }
+
+  return rooms
+}
+
+/** 把两个来源的房间字段统一成一份（构建消息时只认这套字段） */
+function normalizeRoom(raw) {
+  const rid = raw.room_id ?? raw.roomid ?? 0
+  return {
+    uid: String(raw.uid),
+    rid,
+    room_id: rid,
+    uname: raw.uname ?? raw.name ?? String(raw.uid),
+    title: raw.title ?? '',
+    face: raw.face ?? '',
+    cover_from_user: raw.cover_from_user ?? raw.user_cover ?? raw.keyframe ?? '',
+    area_v2_name: raw.area_v2_name ?? raw.area_name ?? raw.parent_area_name ?? '',
+    liveTime: liveTimeOf(raw) || nowSec(),
+  }
+}
+
+/** 开播时间（字段可能是 liveTime / live_time，值可能是秒级时间戳或 "yyyy-MM-dd HH:mm:ss"） */
+function liveTimeOf(room) {
+  return toSec(room?.liveTime ?? room?.live_time)
+}
+
+/** 直播检测状态日志（同状态 10 分钟最多一次） */
+let lastLiveLogAt = 0
+let lastLiveLogKey = ''
+function logLiveScan(rooms, following) {
+  const key = String(rooms.size)
+  const now = nowSec()
+  if (key === lastLiveLogKey && now - lastLiveLogAt < 600) return
+  lastLiveLogAt = now
+  lastLiveLogKey = key
+
+  const list = [...rooms.values()].slice(0, 10).map((r) => `${r.uid}@${r.rid}`).join(',')
+  logger.info(
+    `[bilibili-dynamic] 直播检测: 订阅 ${following.size} 个，在播 ${rooms.size} 个${rooms.size ? `=[${list}]` : ''}`,
+  )
 }
 
 async function liveCloseLoop() {
@@ -213,9 +300,10 @@ export async function liveCloseCheck() {
   const now = nowSec()
   for (const info of Object.values(statusMap)) {
     if (info.live_status === 1) continue
-    const liveTime = liveUsers.get(info.uid)
+    const uid = String(info.uid)
+    const liveTime = liveUsers.get(uid)
     if (liveTime == null) continue
-    liveUsers.delete(info.uid)
+    liveUsers.delete(uid)
     queue.push({
       kind: 'liveClose',
       contact: null,
@@ -305,7 +393,7 @@ async function buildLiveMessage(room) {
           title: room.title,
           face: room.face,
           cover: room.cover_from_user,
-          liveTime: room.live_time,
+          liveTime: liveTimeOf(room),
           area: room.area_v2_name,
         },
         color,
@@ -321,8 +409,8 @@ async function buildLiveMessage(room) {
     rid: room.room_id,
     mid: room.uid,
     name: room.uname,
-    time: formatTime(room.live_time),
-    timestamp: room.live_time,
+    time: formatTime(liveTimeOf(room)),
+    timestamp: liveTimeOf(room),
     title: room.title,
     cover: room.cover_from_user,
     area: room.area_v2_name,
@@ -335,7 +423,7 @@ async function buildLiveMessage(room) {
 /* 目标筛选（对应 SendTasker.getDynamicContactList）                      */
 /* ------------------------------------------------------------------ */
 
-function applyFilter(contactList, mid, category, content) {
+function applyFilter(contactList, mid, category, content, withRegular = true) {
   const data = getData()
   const filter = data.filter
   return contactList.filter((contact) => {
@@ -351,7 +439,8 @@ function applyFilter(contactList, mid, category, content) {
       if (typeSelect.mode !== 'WHITE_LIST' && hit) return false
     }
 
-    const regularSelect = dynamicFilter.regularSelect
+    // 直播/下播不做正则过滤（对应 mirai getLiveContactList 只有 typeSelect）
+    const regularSelect = withRegular ? dynamicFilter.regularSelect : null
     if (regularSelect?.list?.length > 0) {
       for (const regex of regularSelect.list) {
         let matched = false
@@ -396,7 +485,7 @@ function getLiveContactList(mid) {
   } else {
     return [...list]
   }
-  return applyFilter([...list], mid, 'live', '')
+  return applyFilter([...list], mid, 'LIVE', '', false)
 }
 
 /* ------------------------------------------------------------------ */
@@ -595,8 +684,8 @@ async function sendMessage(message) {
     message.kind === 'dynamic' ? 'dynamic' : message.kind === 'live' ? 'live' : 'liveClose'
   const defaultTemplate = cfg.template?.[templateKey] ?? (templateKey === 'dynamic' ? 'OneMsg' : templateKey === 'live' ? 'OneMsg' : 'SimpleMsg')
   const templates = templateKey === 'dynamic' ? cfg.dynamicTemplates : templateKey === 'live' ? cfg.liveTemplates : cfg.liveCloseTemplates
-  const templateOfContact = (contact) =>
-    Data.templateOf(templateKey === 'dynamic' ? 'd' : templateKey === 'l' ? 'l' : 'c', contact) ?? defaultTemplate
+  const templateKind = templateKey === 'dynamic' ? 'd' : templateKey === 'live' ? 'l' : 'c'
+  const templateOfContact = (contact) => Data.templateOf(templateKind, contact) ?? defaultTemplate
 
   const groups = new Map()
   for (const contact of contactList) {
