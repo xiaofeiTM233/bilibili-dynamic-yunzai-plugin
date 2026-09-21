@@ -104,7 +104,10 @@ export async function dynamicCheck() {
   if (Data.allContacts().length === 0) return
 
   const list = await Api.getNewDynamic()
-  if (!list?.items) return
+  if (!list?.items) {
+    logger.warn(`[bilibili-dynamic] 动态检测: 接口未返回 items，本轮跳过 | 响应 JSON: ${JSON.stringify(list)?.slice(0, 500)}`)
+    return
+  }
   stats.dynamicChecks++
   stats.lastCheckAt = Date.now()
 
@@ -221,7 +224,10 @@ async function collectLiveRooms(following) {
   if (Array.isArray(liveList?.rooms)) {
     for (const room of liveList.rooms) {
       const uid = String(room.uid)
-      if (following.has(uid)) rooms.set(uid, normalizeRoom(room))
+      if (following.has(uid)) {
+        logger.info(`[bilibili-dynamic] 直播命中（来源=关注列表）响应 JSON: ${JSON.stringify(room)}`)
+        rooms.set(uid, normalizeRoom(room, '关注列表'))
+      }
     }
   }
 
@@ -235,15 +241,39 @@ async function collectLiveRooms(following) {
     for (const info of Object.values(statusMap ?? {})) {
       if (info?.live_status !== 1) continue
       const uid = String(info.uid)
-      if (following.has(uid)) rooms.set(uid, normalizeRoom(info))
+      if (following.has(uid)) {
+        logger.info(`[bilibili-dynamic] 直播命中（来源=批量状态）响应 JSON: ${JSON.stringify(info)}`)
+        rooms.set(uid, normalizeRoom(info, '批量状态'))
+      }
+    }
+  }
+
+  // 轮询结果校验：字段缺失/异常必须在日志里留痕，而不是静默走占位图
+  for (const room of rooms.values()) {
+    const problems = []
+    if (!room.rid) problems.push('room_id 缺失')
+    if (!room.uname) problems.push('uname 缺失')
+    if (!room.title) problems.push('title 缺失')
+    if (!room.face) problems.push('face 缺失')
+    if (!room.cover_from_user) {
+      problems.push(
+        '封面字段均为空（原始值: ' +
+          `cover_from_user=${JSON.stringify(room.rawCover.cover_from_user)}` +
+          ` user_cover=${JSON.stringify(room.rawCover.user_cover)}` +
+          ` cover=${JSON.stringify(room.rawCover.cover)}` +
+          ` keyframe=${JSON.stringify(room.rawCover.keyframe)}）`,
+      )
+    }
+    if (problems.length > 0) {
+      logger.warn(`[bilibili-dynamic] 直播房间数据异常（来源=${room.source}）: ${problems.join('; ')} | 接口返回字段=[${room.rawKeys.join(',')}]`)
     }
   }
 
   return rooms
 }
 
-/** 把两个来源的房间字段统一成一份（构建消息时只认这套字段） */
-function normalizeRoom(raw) {
+/** 把两个来源的房间字段统一成一份（构建消息时只认这套字段）；source 用于日志定位数据来自哪个接口 */
+function normalizeRoom(raw, source) {
   const rid = raw.room_id ?? raw.roomid ?? 0
   return {
     uid: String(raw.uid),
@@ -252,9 +282,18 @@ function normalizeRoom(raw) {
     uname: raw.uname ?? raw.name ?? String(raw.uid),
     title: raw.title ?? '',
     face: raw.face ?? '',
-    cover_from_user: raw.cover_from_user ?? raw.user_cover ?? raw.keyframe ?? '',
+    cover_from_user: raw.cover_from_user ?? raw.user_cover ?? raw.cover ?? raw.keyframe ?? '',
     area_v2_name: raw.area_v2_name ?? raw.area_name ?? raw.parent_area_name ?? '',
     liveTime: liveTimeOf(raw) || nowSec(),
+    source,
+    // 原始封面相关字段原样保留，供结果校验日志输出
+    rawCover: {
+      cover_from_user: raw.cover_from_user ?? null,
+      user_cover: raw.user_cover ?? null,
+      cover: raw.cover ?? null,
+      keyframe: raw.keyframe ?? null,
+    },
+    rawKeys: Object.keys(raw),
   }
 }
 
@@ -302,7 +341,10 @@ export async function liveCloseCheck() {
     if (info.live_status === 1) continue
     const uid = String(info.uid)
     const liveTime = liveUsers.get(uid)
-    if (liveTime == null) continue
+    if (liveTime == null) {
+      logger.warn(`[bilibili-dynamic] 下播检测: 接口返回的 uid=${uid} 不在开播记录中，跳过下播通知（记录键=[${[...liveUsers.keys()].join(',')}]）`)
+      continue
+    }
     liveUsers.delete(uid)
     queue.push({
       kind: 'liveClose',
@@ -372,7 +414,10 @@ export async function renderDirectDynamic(item, contact) {
 
   const name = Data.templateOf('d', contact) ?? cfg.template?.dynamic ?? 'OneMsg'
   const template = cfg.dynamicTemplates?.[name]
-  if (!template) return [[global.segment.image(message.draw.buffer)]]
+  if (!template) {
+    logger.warn(`[bilibili-dynamic] 动态详情: 模板 ${name} 不存在，退化为仅发送图片`)
+    return [[global.segment.image(message.draw.buffer)]]
+  }
 
   const messages = buildMessages(message, template, [contact])
   return messages.length > 0 ? messages : [[global.segment.image(message.draw.buffer)]]
@@ -381,6 +426,11 @@ export async function renderDirectDynamic(item, contact) {
 async function buildLiveMessage(room) {
   const cfg = getConfig()
   const color = Data.subColor(room.uid)
+
+  logger.info(
+    `[bilibili-dynamic] 直播推送 ${room.uid}（房间 ${room.rid}）来源=${room.source} ` +
+      `封面=${room.cover_from_user || '(空，渲染时将使用占位图)'}`,
+  )
 
   let draw = null
   if (cfg.drawEnable) {
@@ -447,6 +497,7 @@ function applyFilter(contactList, mid, category, content, withRegular = true) {
         try {
           matched = new RegExp(regex).test(content)
         } catch {
+          logger.warn(`[bilibili-dynamic] 正则过滤规则无效，已忽略: ${regex}`)
           continue
         }
         if (regularSelect.mode === 'WHITE_LIST' && !matched) return false
@@ -677,7 +728,13 @@ async function sendMessage(message) {
       ? getLiveContactList(message.mid)
       : getDynamicContactList(message)
 
-  if (contactList.length === 0) return
+  if (contactList.length === 0) {
+    logger.warn(
+      `[bilibili-dynamic] 推送跳过: ${message.kind} ${message.mid ?? ''} 没有可用的推送目标` +
+        `（未配置联系人、联系人组为空、或全部被过滤器拦下，详见上方"跳过"日志）`,
+    )
+    return
+  }
 
   // 模板选择：按目标配置分组，未配置的使用默认模板
   const templateKey =

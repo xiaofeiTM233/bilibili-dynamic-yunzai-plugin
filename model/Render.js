@@ -160,6 +160,18 @@ let runtime = null
 let runtimeVersion = 0
 const iconCache = new Map()
 
+/** 渲染依赖版本（用于排查"是不是依赖的问题"） */
+function dependencyVersions() {
+  const read = (name) => {
+    try {
+      return require(`${name}/package.json`).version
+    } catch {
+      return '未知'
+    }
+  }
+  return { 封装库: read('bilibili-dynamic-canvaskit'), canvaskitWasm: read('canvaskit-wasm') }
+}
+
 async function createRuntime() {
   const cfg = getConfig()
   const fonts = await resolveFonts()
@@ -191,7 +203,11 @@ async function createRuntime() {
     fetchImpl: safeFetch,
   })
 
-  logger.info(`[bilibili-dynamic] 渲染运行时就绪 quality=${rt.quality.imageWidth}px theme=${typeof cfg.theme === 'string' ? cfg.theme : 'custom'}`)
+  const versions = dependencyVersions()
+  logger.info(
+    `[bilibili-dynamic] 渲染运行时就绪 quality=${rt.quality.imageWidth}px theme=${typeof cfg.theme === 'string' ? cfg.theme : 'custom'}` +
+      ` | 依赖: bilibili-dynamic-canvaskit@${versions.封装库} canvaskit-wasm@${versions.canvaskitWasm}`,
+  )
   return rt
 }
 
