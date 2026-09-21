@@ -201,6 +201,7 @@ async function createRuntime() {
     ),
     downloadOriginal: cfg.downloadOriginal !== false,
     fetchImpl: safeFetch,
+    cacheDir,
   })
 
   const versions = dependencyVersions()
