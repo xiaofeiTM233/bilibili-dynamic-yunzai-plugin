@@ -197,7 +197,6 @@ export async function liveCheck() {
   const lives = [...rooms.values()].filter((room) => liveSnapshot.get(room.uid) !== room.rid)
   liveSnapshot = new Map([...rooms].map(([uid, room]) => [uid, room.rid]))
 
-  logLiveScan(rooms, following)
   if (lives.length === 0) return
   logger.info(`[bilibili-dynamic] 检测到 ${lives.length} 个开播，准备推送`)
   lastLive = nowSec()
@@ -224,10 +223,7 @@ async function collectLiveRooms(following) {
   if (Array.isArray(liveList?.rooms)) {
     for (const room of liveList.rooms) {
       const uid = String(room.uid)
-      if (following.has(uid)) {
-        logger.info(`[bilibili-dynamic] 直播命中（来源=关注列表）响应 JSON: ${JSON.stringify(room)}`)
-        rooms.set(uid, normalizeRoom(room, '关注列表'))
-      }
+      if (following.has(uid)) rooms.set(uid, normalizeRoom(room, '关注列表'))
     }
   }
 
@@ -241,10 +237,7 @@ async function collectLiveRooms(following) {
     for (const info of Object.values(statusMap ?? {})) {
       if (info?.live_status !== 1) continue
       const uid = String(info.uid)
-      if (following.has(uid)) {
-        logger.info(`[bilibili-dynamic] 直播命中（来源=批量状态）响应 JSON: ${JSON.stringify(info)}`)
-        rooms.set(uid, normalizeRoom(info, '批量状态'))
-      }
+      if (following.has(uid)) rooms.set(uid, normalizeRoom(info, '批量状态'))
     }
   }
 
@@ -294,28 +287,13 @@ function normalizeRoom(raw, source) {
       keyframe: raw.keyframe ?? null,
     },
     rawKeys: Object.keys(raw),
+    rawJson: JSON.stringify(raw),
   }
 }
 
 /** 开播时间（字段可能是 liveTime / live_time，值可能是秒级时间戳或 "yyyy-MM-dd HH:mm:ss"） */
 function liveTimeOf(room) {
   return toSec(room?.liveTime ?? room?.live_time)
-}
-
-/** 直播检测状态日志（同状态 10 分钟最多一次） */
-let lastLiveLogAt = 0
-let lastLiveLogKey = ''
-function logLiveScan(rooms, following) {
-  const key = String(rooms.size)
-  const now = nowSec()
-  if (key === lastLiveLogKey && now - lastLiveLogAt < 600) return
-  lastLiveLogAt = now
-  lastLiveLogKey = key
-
-  const list = [...rooms.values()].slice(0, 10).map((r) => `${r.uid}@${r.rid}`).join(',')
-  logger.info(
-    `[bilibili-dynamic] 直播检测: 订阅 ${following.size} 个，在播 ${rooms.size} 个${rooms.size ? `=[${list}]` : ''}`,
-  )
 }
 
 async function liveCloseLoop() {
@@ -346,6 +324,9 @@ export async function liveCloseCheck() {
       continue
     }
     liveUsers.delete(uid)
+    logger.info(
+      `[bilibili-dynamic] 检测到下播 ${info.uname}(${uid}) 房间 ${info.room_id}，直播时长 ${formatDuration(now - liveTime)}`,
+    )
     queue.push({
       kind: 'liveClose',
       contact: null,
@@ -428,8 +409,8 @@ async function buildLiveMessage(room) {
   const color = Data.subColor(room.uid)
 
   logger.info(
-    `[bilibili-dynamic] 直播推送 ${room.uid}（房间 ${room.rid}）来源=${room.source} ` +
-      `封面=${room.cover_from_user || '(空，渲染时将使用占位图)'}`,
+    `[bilibili-dynamic] 检测到开播 ${room.uname}(${room.uid}) 房间 ${room.rid} 来源=${room.source} ` +
+      `封面=${room.cover_from_user || '(空，渲染时将使用占位图)'} | 响应 JSON: ${room.rawJson}`,
   )
 
   let draw = null
