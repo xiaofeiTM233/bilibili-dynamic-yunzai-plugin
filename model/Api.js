@@ -2,7 +2,9 @@
  * B 站 API 客户端 —— 移植自 api/*.kt + client/BiliClient.kt
  */
 import crypto from 'node:crypto'
-import { getConfig, getData, saveData } from './Config.js'
+import fs from 'node:fs'
+import path from 'node:path'
+import { exceptionDir, getConfig, getData, saveData } from './Config.js'
 import { md5, nowSec, today } from './Utils.js'
 
 const logger = global.logger ?? console
@@ -86,10 +88,38 @@ function fetchOptions(method = 'GET', extra = {}) {
   return options
 }
 
+/**
+ * 响应解析失败时把原始报文落盘，对应 mirai JsonUtils：
+ * 写入 exception/<日期>-<md5>.json，并提示用户把文件反馈给开发者。
+ */
+function dumpException(url, raw, err) {
+  try {
+    const file = path.join(exceptionDir, `${today()}-${md5(String(err.message ?? '')).slice(0, 8)}.json`)
+    if (!fs.existsSync(file)) {
+      fs.writeFileSync(
+        file,
+        JSON.stringify({ url, date: today(), error: err.message, stack: err.stack, raw }, null, 2),
+      )
+    }
+    return file
+  } catch {
+    return null
+  }
+}
+
 async function request(url, options) {
   const response = await fetch(url, options)
   if (!response.ok) throw new Error(`请求失败 HTTP ${response.status}: ${url}`)
-  return response.json()
+  const text = await response.text()
+  try {
+    return JSON.parse(text)
+  } catch (err) {
+    const file = dumpException(url, text, err)
+    logger.error(
+      `[bilibili-dynamic] 接口响应解析失败${file ? `，请把 ${file} 反馈给开发者` : ''}: ${err.message}\n${url}`,
+    )
+    throw err
+  }
 }
 
 function query(params = {}) {

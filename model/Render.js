@@ -292,11 +292,15 @@ const CACHE_TYPES = {
   search: 'draw/search',
 }
 
-/** 将 PNG 保存到缓存目录，返回绝对路径 */
+/** 将 PNG 保存到缓存目录，返回绝对路径；subPath 允许含 /（对应 mirai CacheType.cacheFile 的子目录行为） */
 export function cacheImage(type, subPath, buffer) {
   const dir = path.join(cacheDir, CACHE_TYPES[type] ?? CACHE_TYPES.search)
-  ensureDir(dir)
-  const file = path.join(dir, subPath.replace(/[\\/:*?"<>|]/g, '_'))
+  const parts = String(subPath)
+    .split('/')
+    .filter(Boolean)
+    .map((seg) => seg.replace(/[\\:*?"<>|]/g, '_'))
+  const file = path.join(dir, ...parts)
+  ensureDir(path.dirname(file))
   fs.writeFileSync(file, buffer)
   return file
 }
@@ -459,7 +463,7 @@ export async function renderLive(live, colorHex = null) {
   const buffer = Buffer.from(png)
   let filePath = null
   try {
-    filePath = cacheImage('live', `${live.uid}_${live.roomId}.png`, buffer)
+    filePath = cacheImage('live', `${live.uid}/${formatTime(live.liveTime, 'yyyyMMddHHmmss')}.png`, buffer)
   } catch (err) {
     logger.warn(`[bilibili-dynamic] 直播图片落盘失败: ${err.message}`)
   }
@@ -515,7 +519,7 @@ export async function renderSearchCard(options) {
   const buffer = Buffer.from(png)
   let filePath = null
   try {
-    filePath = cacheImage('search', `${options.id}_${options.tag}.png`, buffer)
+    filePath = cacheImage('search', `${options.id}.png`, buffer)
   } catch (err) {
     logger.warn(`[bilibili-dynamic] 搜索图片落盘失败: ${err.message}`)
   }
@@ -535,19 +539,37 @@ export async function renderLoginQrcode(url) {
 /* 缓存清理（对应 CacheClearTasker）                                     */
 /* ------------------------------------------------------------------ */
 
-/** 清理超过 days 天未访问的缓存图片，days=0 时跳过 */
-export function clearCache(days) {
-  if (!days || days <= 0) return 0
-  const expire = daysAgoMs(days)
+/**
+ * cacheConfig.expires 的分类 -> 实际目录，对应 mirai CacheType.path。
+ * DRAW 用 "draw"，其下含 draw/dynamic、draw/live、draw/search 三个子目录。
+ */
+const CACHE_EXPIRE_DIRS = {
+  DRAW: 'draw',
+  IMAGES: 'images',
+  EMOJI: 'emoji',
+  USER: 'user',
+  OTHER: 'other',
+}
+
+/**
+ * 按 cacheConfig.expires 分类型清理（对应 mirai CacheClearTasker）。
+ * 每类用各自的天数，天数 <= 0 表示该类型不清理。
+ */
+export function clearCache(expires = {}) {
   let count = 0
-  walkFiles(cacheDir, (file) => {
-    try {
-      if (fs.statSync(file).mtimeMs < expire) {
-        fs.unlinkSync(file)
-        count++
-      }
-    } catch {}
-  })
+  for (const [type, dir] of Object.entries(CACHE_EXPIRE_DIRS)) {
+    const days = Number(expires?.[type] ?? 0)
+    if (!(days > 0)) continue
+    const expire = daysAgoMs(days)
+    walkFiles(path.join(cacheDir, dir), (file) => {
+      try {
+        if (fs.statSync(file).mtimeMs < expire) {
+          fs.unlinkSync(file)
+          count++
+        }
+      } catch {}
+    })
+  }
   if (count > 0) logger.info(`[bilibili-dynamic] 缓存清理完成，删除 ${count} 个文件`)
   return count
 }

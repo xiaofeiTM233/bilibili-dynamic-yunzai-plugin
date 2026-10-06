@@ -13,8 +13,7 @@
  *   - 推送模板：模板名 -> 联系人列表
  * 可将 mirai 的原文件直接放入本目录使用，也可复制回 mirai 继续使用。
  * 文件缺失时从插件自带的 config/*.default.yml 复制补齐，代码内无任何默认值表。
- * 登录 cookie 优先取 BiliConfig.yml 的 accountConfig.cookie（mirai 登录写入处），
- * BiliData.yml 中的扩展键 cookie/uid 优先（#bili登录 写入）。
+ * 登录凭据（cookie / uid）只存于 BiliData.yml，由 #bili登录 写入；BiliConfig.yml 不含登录信息。
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -35,6 +34,8 @@ const dataRoot = (() => {
 
 export const cacheDir = path.join(dataRoot, 'cache')
 export const fontDir = path.join(dataRoot, 'font')
+/** 接口响应解析失败时的落盘目录（对应 mirai JsonUtils 的 data/exception） */
+export const exceptionDir = path.join(dataRoot, 'exception')
 
 export const configPath = path.join(dataRoot, 'BiliConfig.yml')
 export const qualityPath = path.join(dataRoot, 'ImageQuality.yml')
@@ -43,6 +44,7 @@ export const dataPath = path.join(dataRoot, 'BiliData.yml')
 
 ensureDir(dataRoot)
 ensureDir(cacheDir)
+ensureDir(exceptionDir)
 
 /* ------------------------------------------------------------------ */
 /* 默认文件：全部随插件附带（config/*.default.yml），缺失时复制补齐            */
@@ -112,7 +114,7 @@ function buildView(cfg, qualityDoc, themeDoc) {
     colorGenerator: i.colorGenerator,
     badgeEnable: i.badgeEnable,
     downloadOriginal: cfg.cacheConfig?.downloadOriginal,
-    cacheClearDays: cfg.cacheConfig?.expires?.DRAW ?? 7,
+    cacheExpires: cfg.cacheConfig?.expires ?? { DRAW: 7, IMAGES: 7, EMOJI: 7, USER: 7, OTHER: 7 },
     pushInterval: p.pushInterval,
     messageInterval: p.messageInterval,
     atAllPlus: p.atAllPlus,
@@ -161,15 +163,6 @@ export function getData() {
     ensureFile(dataPath, path.join(configDir, 'BiliData.default.yml'))
     // deepMerge 以默认文件为骨架补齐新键，纯函数不改基线
     const data = deepMerge(readYaml(path.join(configDir, 'BiliData.default.yml'), {}), readYaml(dataPath, {}) ?? {})
-    // cookie 兜底：BiliData 未登录时取 BiliConfig.accountConfig.cookie（mirai 登录写入处）
-    if (!data.cookie) {
-      const cookie = getConfig().root?.accountConfig?.cookie
-      if (cookie) {
-        data.cookie = cookie
-        const m = /DedeUserID=(\d+)/.exec(cookie)
-        if (m) data.uid = Number(m[1])
-      }
-    }
     globalThis.__biliData = data
   }
   return globalThis.__biliData

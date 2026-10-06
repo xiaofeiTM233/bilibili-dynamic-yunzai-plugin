@@ -831,10 +831,13 @@ async function cacheLoop() {
   while (running) {
     const day = today()
     const hour = hourOf()
-    if (lastCacheClearDay !== day && hour === 4) {
+    // 用 >= 而不是 ===：循环每轮 sleep 1 小时并叠加任务耗时，唤醒点会慢慢漂移，
+    // 精确等于 4 时可能整点被跳过（休眠/挂起后更明显），导致当天清理与运行时重建都不执行，
+    // 图片内存缓存跨天累积，最终把 WASM 堆吃满（报「创建 Surface 失败」）
+    if (lastCacheClearDay !== day && hour >= 4) {
       lastCacheClearDay = day
       try {
-        clearCache(getConfig().cacheClearDays ?? 7)
+        clearCache(getConfig().cacheExpires)
         await resetRuntime()
       } catch (err) {
         logger.warn(`[bilibili-dynamic] 缓存清理失败: ${err.message}`)

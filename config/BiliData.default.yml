@@ -8,8 +8,6 @@ dynamic:
   "0":
     name: ALL
     color: null
-    last: 0
-    lastLive: 0
     contacts: []
     banList: {}
 bangumi: {}

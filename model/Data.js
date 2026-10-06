@@ -79,7 +79,7 @@ export function addSubscribe(uid, name, contact) {
   const all = data.dynamic[0]
   if (all) all.contacts = all.contacts.filter((c) => c !== contact)
   if (!data.dynamic[uid]) {
-    data.dynamic[uid] = { name, color: null, last: 0, lastLive: 0, contacts: [], banList: {} }
+    data.dynamic[uid] = { name, color: null, contacts: [], banList: {} }
   }
   if (!isFollow(uid, contact)) data.dynamic[uid].contacts.push(contact)
   saveData()

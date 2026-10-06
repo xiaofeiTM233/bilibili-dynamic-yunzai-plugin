@@ -117,7 +117,6 @@ npm install   # 或 pnpm install
 | `enableConfig.drawEnable` | `true` | 绘图开关 |
 | `enableConfig.notifyEnable` | `true` | 操作通知开关 |
 | `enableConfig.liveCloseNotifyEnable` | `true` | 下播通知开关 |
-| `accountConfig.cookie` | 空 | B 站 cookie（`#bili登录` 也可写入） |
 | `accountConfig.autoFollow / followGroup` | `true / Bot关注` | 订阅时自动关注及分组 |
 | `imageConfig.quality / theme` | `1000w / v3` | 图片分辨率与主题（被 ImageQuality/ImageTheme 的 customOverload 覆盖） |
 | `imageConfig.font / defaultColor / cardOrnament / colorGenerator / badgeEnable` | — | 绘图相关 |

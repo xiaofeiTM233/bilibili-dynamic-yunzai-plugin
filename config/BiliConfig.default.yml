@@ -4,12 +4,11 @@ enableConfig:
   liveCloseNotifyEnable: true
   showLoadingMessage: true
 accountConfig:
-  cookie: ""
   autoFollow: true
   followGroup: Bot关注
 checkConfig:
   interval: 15
-  liveInterval: 20
+  liveInterval: 15
   lowSpeed: 0-0x2
   timeout: 10
 pushConfig:
@@ -90,3 +89,9 @@ templateConfig:
     footerAlign: LEFT
 cacheConfig:
   downloadOriginal: true
+  expires:
+    DRAW: 7
+    IMAGES: 7
+    EMOJI: 7
+    USER: 7
+    OTHER: 7
