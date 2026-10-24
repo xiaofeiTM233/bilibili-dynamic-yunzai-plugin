@@ -216,10 +216,10 @@ export async function liveCheck() {
 /**
  * 开播时封面兜底。
  * 关注列表（GetWebList）与批量状态接口返回的封面字段是 cover_from_user，
- * 开播瞬间可能为空串（keyframe 同样为空）；此时向房间详情接口补取，
- * 该接口返回的是另一个字段名 user_cover，实测有值。
+ * 开播瞬间可能为空串（keyframe 同样为空）；此时向房间详情接口补取。
+ * 详情接口为 getInfoByRoom，封面字段是 room_info.cover，实测始终有值。
  * 只在开播那一次补查，不影响轮询开销。
- * 详情接口返回的响应里若仍没有封面，会把完整响应 JSON 打出来——
+ * 详情接口返回的响应里若仍没有封面，会把响应 JSON 打出来——
  * 用于分辨是「B站真的没给封面」还是「接口返回了非预期结构」。
  */
 async function fillLiveCover(room) {
@@ -229,10 +229,10 @@ async function fillLiveCover(room) {
     return null
   })
   if (!detail) return
-  const cover = detail.user_cover || detail.keyframe || detail.cover || detail.cover_from_user || ''
+  const cover = detail.cover || detail.keyframe || detail.user_cover || detail.cover_from_user || ''
   if (!cover) {
     logger.warn(
-      `[bilibili-dynamic] 房间 ${room.rid} 详情接口响应中没有封面字段（user_cover/keyframe/cover 均为空）` +
+      `[bilibili-dynamic] 房间 ${room.rid} 详情接口响应中没有封面字段（room_info.cover/keyframe 均为空）` +
         ` | 响应 JSON: ${JSON.stringify(detail).slice(0, 800)}`,
     )
     return

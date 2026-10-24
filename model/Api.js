@@ -25,7 +25,7 @@ export const Api = {
 
   LIVE_LIST: 'https://api.live.bilibili.com/xlive/web-ucenter/v1/xfetter/GetWebList',
   LIVE_STATUS_BATCH: 'https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids',
-  LIVE_DETAIL: 'https://api.live.bilibili.com/room/v1/Room/get_info',
+  LIVE_DETAIL: 'https://api.live.bilibili.com/xlive/web-room/v1/index/getInfoByRoom',
 
   SEARCH: 'https://api.bilibili.com/x/web-interface/search/type',
   USER_INFO_WBI: 'https://api.bilibili.com/x/space/wbi/acc/info',
@@ -331,8 +331,27 @@ export async function getLiveStatus(uids) {
   return getDataResult(Api.LIVE_STATUS_BATCH, { 'uids[]': uids })
 }
 
+/**
+ * 直播间详情。
+ * 接口为 getInfoByRoom：房间信息位于 data.room_info，封面字段为 cover。
+ * 原 room/v1/Room/get_info 的 user_cover 在未设置封面/刚开播时会返回空串，
+ * 而 getInfoByRoom 的 room_info.cover 始终有值。
+ * 这里把 room_info 拍平返回，并补 user_cover / cover_from_user 别名，
+ * 使 Push.js、Dynamic.js、ResolveLink.js 中既有的取值写法无需改动。
+ */
 export async function getLiveDetail(roomId) {
-  return getDataResult(Api.LIVE_DETAIL, { room_id: roomId })
+  const data = await getDataResult(Api.LIVE_DETAIL, { room_id: roomId })
+  const info = data?.room_info
+  if (!info) throw new Error(`直播房间详情缺少 room_info (room_id=${roomId})`)
+  const base = data?.anchor_info?.base_info ?? {}
+  const cover = info.cover || info.keyframe || ''
+  return {
+    ...info,
+    uname: info.uname || base.uname || '',
+    face: info.face || base.face || '',
+    user_cover: info.user_cover || cover,
+    cover_from_user: info.cover_from_user || cover,
+  }
 }
 
 /* ------------------------------------------------------------------ */
