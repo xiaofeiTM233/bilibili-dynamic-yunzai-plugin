@@ -2,7 +2,7 @@
  * 渲染封装 —— 基于 npm 包 bilibili-dynamic-canvaskit（Skia/CanvasKit）
  *
  * 对应原插件 draw/DynamicDraw.kt 的 makeDrawDynamic / makeDrawLive：
- *   模块层 -> 作者区 -> assembleCard 拼贴 -> 渐变底图合成 -> PNG
+ *   模块层 -> 作者区 -> assembleCard 拼贴 -> 渐变底图合成 -> WebP/JPEG
  *
  * 运行时（字体 + 配置 + 图片缓存）常驻，配置重载或每日缓存清理时重建。
  */
@@ -292,7 +292,7 @@ const CACHE_TYPES = {
   search: 'draw/search',
 }
 
-/** 将 PNG 保存到缓存目录，返回绝对路径；subPath 允许含 /（对应 mirai CacheType.cacheFile 的子目录行为） */
+/** 将渲染结果保存到缓存目录，返回绝对路径；subPath 允许含 /（对应 mirai CacheType.cacheFile 的子目录行为） */
 export function cacheImage(type, subPath, buffer) {
   const dir = path.join(cacheDir, CACHE_TYPES[type] ?? CACHE_TYPES.search)
   const parts = String(subPath)
@@ -303,6 +303,26 @@ export function cacheImage(type, subPath, buffer) {
   ensureDir(path.dirname(file))
   fs.writeFileSync(file, buffer)
   return file
+}
+
+/** 卡片编码：WebP → JPEG → PNG。标准构建未编入前两者时 encodeToBytes 返回 null，必须留 PNG 兜底 */
+const ENCODE_QUALITY = 90
+let encodeFormatReported = false
+
+function encodeCard(rt, image) {
+  const fmt = rt.ck?.EncodedImageFormat ?? {}
+  const bytes =
+    image.encodeToBytes(fmt.WEBP, ENCODE_QUALITY) ??
+    image.encodeToBytes(fmt.JPEG, ENCODE_QUALITY) ??
+    image.encodeToBytes(fmt.PNG)
+  if (!bytes) return null
+  // 按文件头判断实际格式：PNG 89 50 / JPEG FF D8 / 其余 WebP
+  const ext = bytes[0] === 0x89 && bytes[1] === 0x50 ? 'png' : bytes[0] === 0xff && bytes[1] === 0xd8 ? 'jpg' : 'webp'
+  if (!encodeFormatReported) {
+    encodeFormatReported = true
+    logger.info(`[bilibili-dynamic] 卡片图片编码格式: ${ext}`)
+  }
+  return { bytes, ext }
 }
 
 /* ------------------------------------------------------------------ */
@@ -317,7 +337,7 @@ async function prepareItem(item) {
 }
 
 /**
- * 渲染完整动态卡片（含转发嵌套），返回 PNG Buffer
+ * 渲染完整动态卡片（含转发嵌套），返回图片 Buffer（WebP，缺编码器时 JPEG）
  * @param item B 站 API 动态数据（web-dynamic v1 结构）
  * @param colorHex 主题色，如 "#d3edfa" 或 "#a;#b"
  * @returns {{ buffer: Buffer, path: string|null }}
@@ -336,14 +356,14 @@ export async function renderDynamic(item, colorHex = null) {
   const finalImage = ck.composeDynamicCard(rt, cardImage, colorsInt)
   cardImage.delete()
 
-  const png = finalImage.encodeToBytes()
+  const encoded = encodeCard(rt, finalImage)
   finalImage.delete()
-  if (!png) throw new Error('动态卡片 PNG 编码失败')
+  if (!encoded) throw new Error('动态卡片图片编码失败')
 
-  const buffer = Buffer.from(png)
+  const buffer = Buffer.from(encoded.bytes)
   let filePath = null
   try {
-    filePath = cacheImage('dynamic', `${mid}/${did}.png`, buffer)
+    filePath = cacheImage('dynamic', `${mid}/${did}.${encoded.ext}`, buffer)
   } catch (err) {
     logger.warn(`[bilibili-dynamic] 动态图片落盘失败: ${err.message}`)
   }
@@ -456,14 +476,14 @@ export async function renderLive(live, colorHex = null) {
   const finalImage = ck.composeLiveCard(rt, card, colors)
   card.delete()
 
-  const png = finalImage.encodeToBytes()
+  const encoded = encodeCard(rt, finalImage)
   finalImage.delete()
-  if (!png) throw new Error('直播卡片 PNG 编码失败')
+  if (!encoded) throw new Error('直播卡片图片编码失败')
 
-  const buffer = Buffer.from(png)
+  const buffer = Buffer.from(encoded.bytes)
   let filePath = null
   try {
-    filePath = cacheImage('live', `${live.uid}/${formatTime(live.liveTime, 'yyyyMMddHHmmss')}.png`, buffer)
+    filePath = cacheImage('live', `${live.uid}/${formatTime(live.liveTime, 'yyyyMMddHHmmss')}.${encoded.ext}`, buffer)
   } catch (err) {
     logger.warn(`[bilibili-dynamic] 直播图片落盘失败: ${err.message}`)
   }
@@ -512,14 +532,14 @@ export async function renderSearchCard(options) {
   const finalImage = ck.composeDynamicCard(rt, card, colors)
   card.delete()
 
-  const png = finalImage.encodeToBytes()
+  const encoded = encodeCard(rt, finalImage)
   finalImage.delete()
-  if (!png) throw new Error('搜索卡片 PNG 编码失败')
+  if (!encoded) throw new Error('搜索卡片图片编码失败')
 
-  const buffer = Buffer.from(png)
+  const buffer = Buffer.from(encoded.bytes)
   let filePath = null
   try {
-    filePath = cacheImage('search', `${options.id}.png`, buffer)
+    filePath = cacheImage('search', `${options.id}.${encoded.ext}`, buffer)
   } catch (err) {
     logger.warn(`[bilibili-dynamic] 搜索图片落盘失败: ${err.message}`)
   }
