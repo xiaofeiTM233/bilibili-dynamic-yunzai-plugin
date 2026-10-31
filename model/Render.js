@@ -310,7 +310,7 @@ const ENCODE_QUALITY = 90
 let encodeFormatReported = false
 
 function encodeCard(rt, image) {
-  const fmt = rt.ck?.EncodedImageFormat ?? {}
+  const fmt = rt.ck?.ImageFormat ?? rt.ck?.EncodedImageFormat ?? {}
   const bytes =
     image.encodeToBytes(fmt.WEBP, ENCODE_QUALITY) ??
     image.encodeToBytes(fmt.JPEG, ENCODE_QUALITY) ??
