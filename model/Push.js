@@ -203,7 +203,7 @@ export async function liveCheck() {
 
   for (const room of lives) {
     try {
-      await fillLiveCover(room)
+      await fillLiveInfo(room)
       queue.push(await buildLiveMessage(room))
       processQueue()
       if (getConfig().liveCloseNotify) liveUsers.set(room.uid, room.liveTime)
@@ -213,27 +213,20 @@ export async function liveCheck() {
   }
 }
 
-/** 开播封面兜底：列表/批量接口的 cover_from_user 开播瞬间常为空，改从 getInfoByRoom 的 room_info.cover 补取，仅开播时查一次 */
-async function fillLiveCover(room) {
-  if (room.cover_from_user) return
+/** 直播数据以 getInfoByRoom 为准：开播推送前无条件拉取并覆盖，请求失败才沿用列表数据 */
+async function fillLiveInfo(room) {
   const detail = await Api.getLiveDetail(room.rid).catch((err) => {
-    logger.warn(`[bilibili-dynamic] 房间详情查询失败 ${room.rid}: ${err.message}`)
+    logger.warn(`[bilibili-dynamic] 房间详情查询失败，本次沿用列表数据 ${room.rid}: ${err.message}`)
     return null
   })
   if (!detail) return
-  const cover = detail.cover || detail.keyframe || detail.user_cover || detail.cover_from_user || ''
-  if (!cover) {
-    logger.warn(
-      `[bilibili-dynamic] 房间 ${room.rid} 详情接口响应中没有封面字段（room_info.cover/keyframe 均为空）` +
-        ` | 响应 JSON: ${JSON.stringify(detail).slice(0, 800)}`,
-    )
-    return
-  }
-  room.cover_from_user = cover
-  logger.info(
-    `[bilibili-dynamic] 房间 ${room.rid} 列表接口封面为空，已从房间详情补取：${cover}` +
-      ` | 响应 JSON: ${JSON.stringify(detail).slice(0, 800)}`,
-  )
+  const cover = detail.cover || detail.keyframe || ''
+  room.uname = detail.uname || room.uname
+  room.face = detail.face || room.face
+  room.title = detail.title || room.title
+  if (cover) room.cover_from_user = cover
+  if (detail.area_name) room.area_v2_name = detail.area_name
+  if (detail.live_start_time) room.liveTime = detail.live_start_time
 }
 
 /** 收集当前在播的房间：关注列表 + 订阅补查 */
@@ -267,20 +260,10 @@ async function collectLiveRooms(following) {
 
   // 轮询结果校验：字段缺失/异常必须在日志里留痕，而不是静默走占位图
   for (const room of rooms.values()) {
+    // 封面与作者信息在开播瞬间可能为空，由 fillLiveInfo 补全；此处只记录硬性缺失
     const problems = []
     if (!room.rid) problems.push('room_id 缺失')
-    if (!room.uname) problems.push('uname 缺失')
     if (!room.title) problems.push('title 缺失')
-    if (!room.face) problems.push('face 缺失')
-    if (!room.cover_from_user) {
-      problems.push(
-        '封面字段均为空（原始值: ' +
-          `cover_from_user=${JSON.stringify(room.rawCover.cover_from_user)}` +
-          ` user_cover=${JSON.stringify(room.rawCover.user_cover)}` +
-          ` cover=${JSON.stringify(room.rawCover.cover)}` +
-          ` keyframe=${JSON.stringify(room.rawCover.keyframe)}）`,
-      )
-    }
     if (problems.length > 0) {
       logger.warn(`[bilibili-dynamic] 直播房间数据异常（来源=${room.source}）: ${problems.join('; ')} | 接口返回字段=[${room.rawKeys.join(',')}]`)
     }
